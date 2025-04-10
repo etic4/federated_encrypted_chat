@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia';
+import { getSodium } from '../composables/useCrypto';
 import { ref, computed } from 'vue';
 import type { Ref } from 'vue';
 
@@ -16,6 +17,15 @@ export const useConversationsStore = defineStore('conversations', () => {
   // État
   const conversations: Ref<ConversationListInfo[]> = ref([]);
   const sessionKeys: Ref<Record<number, Uint8Array>> = ref({});
+  
+  // Etat vérification : conversationId -> Set de usernames vérifiés
+  const verifiedParticipants: Ref<Record<number, Set<string>>> = ref({})
+
+  // Nouvel état : conversationId -> Set de usernames nécessitant une révérification
+  const pendingReverification: Ref<Record<number, Set<string>>> = ref({})
+
+  // Cache local des clés publiques : username -> clé publique Uint8Array
+  const participantPublicKeys: Ref<Record<string, Uint8Array>> = ref({})
   const currentConversationId: Ref<number | null> = ref(null);
 
   // Actions
@@ -45,6 +55,8 @@ export const useConversationsStore = defineStore('conversations', () => {
     if (currentConversationId.value === conversationId) {
       currentConversationId.value = null;
     }
+    delete verifiedParticipants.value[conversationId];
+    delete pendingReverification.value[conversationId];
   }
 
 
@@ -81,17 +93,80 @@ export const useConversationsStore = defineStore('conversations', () => {
     function handlePublicKeyChanged(data: { contactId: string; newPublicKey: string }) {
       conversations.value.forEach(convo => {
         if (convo.participants.includes(data.contactId)) {
-          // Ici, il faudrait mettre à jour la clé publique du contact dans la conversation.
-          // Comme la structure ne contient pas cette info, ce commentaire indique où le faire.
-          // Invalider l'état "vérifié" si vous avez un tel champ dans la conversation.
+          // Invalider la vérification pour ce contact dans cette conversation
+          unverifyParticipant(convo.id, data.contactId)
+          // Marquer comme nécessitant une révérification
+          markPendingReverification(convo.id, data.contactId)
         }
-      });
+      })
+
+      // Mettre à jour la clé publique dans le cache local
+      ;(async () => {
+        const sodium = await getSodium()
+        participantPublicKeys.value[data.contactId] = sodium.from_base64(data.newPublicKey)
+      })()
     }
   function updateConversationParticipants(conversationId: number, participants: string[]) {
     const convo = conversations.value.find(c => c.id === conversationId);
     if (convo) {
       convo.participants = participants;
     }
+  }
+
+  // Actions pour gestion vérification
+
+  function markParticipantAsVerified(conversationId: number, username: string) {
+    if (!verifiedParticipants.value[conversationId]) {
+      verifiedParticipants.value[conversationId] = new Set()
+    }
+    verifiedParticipants.value[conversationId].add(username)
+    // Si l'utilisateur vérifie, on enlève le flag pendingReverification
+    clearPendingReverification(conversationId, username)
+  }
+
+  function unverifyParticipant(conversationId: number, username: string) {
+    if (verifiedParticipants.value[conversationId]) {
+      verifiedParticipants.value[conversationId].delete(username)
+    }
+  }
+
+  function unverifyAllForConversation(conversationId: number) {
+    verifiedParticipants.value[conversationId] = new Set()
+    pendingReverification.value[conversationId] = new Set()
+  }
+
+  function clearVerifiedStatus() {
+    verifiedParticipants.value = {}
+    pendingReverification.value = {}
+  }
+
+  function markPendingReverification(conversationId: number, username: string) {
+    if (!pendingReverification.value[conversationId]) {
+      pendingReverification.value[conversationId] = new Set()
+    }
+    pendingReverification.value[conversationId].add(username)
+  }
+
+  function clearPendingReverification(conversationId: number, username: string) {
+    if (pendingReverification.value[conversationId]) {
+      pendingReverification.value[conversationId].delete(username)
+    }
+  }
+
+  function isParticipantVerified(conversationId: number, username: string): boolean {
+    return !!verifiedParticipants.value[conversationId]?.has(username)
+  }
+
+  function needsReverification(conversationId: number, username: string): boolean {
+    return !!pendingReverification.value[conversationId]?.has(username)
+  }
+
+  function cacheParticipantPublicKey(username: string, key: Uint8Array) {
+    participantPublicKeys.value[username] = key
+  }
+
+  function getParticipantPublicKey(username: string): Uint8Array | undefined {
+    return participantPublicKeys.value[username]
   }
 
   // Getters
@@ -108,6 +183,9 @@ export const useConversationsStore = defineStore('conversations', () => {
     conversations,
     sessionKeys,
     currentConversationId,
+    verifiedParticipants,
+    pendingReverification,
+    participantPublicKeys,
     // actions
     setConversations,
     addConversation,
@@ -116,12 +194,22 @@ export const useConversationsStore = defineStore('conversations', () => {
     setCurrentConversationId,
     removeConversation,
     updateConversationParticipants,
+    handleParticipantAdded,
+    handleKeyRotation,
+    handlePublicKeyChanged,
+    markParticipantAsVerified,
+    unverifyParticipant,
+    unverifyAllForConversation,
+    clearVerifiedStatus,
+    markPendingReverification,
+    clearPendingReverification,
     // getters
+    isParticipantVerified,
+    needsReverification,
+    cacheParticipantPublicKey,
+    getParticipantPublicKey,
     getConversationList,
     getSessionKey,
     getCurrentConversationId,
-    handleParticipantAdded,
-      handleKeyRotation,
-      handlePublicKeyChanged,
-    };
+  };
 });

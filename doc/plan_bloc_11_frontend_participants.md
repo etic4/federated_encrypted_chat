@@ -6,9 +6,9 @@
 
 ---
 
-- [ ] **Tâche 11.1 : Créer les composants UI pour gérer les participants.**
+- [x] **Tâche 11.1 : Créer les composants UI pour gérer les participants.**
     - **Instruction :** Créez un composant (ex: modal ou section dans les détails de la conversation) pour afficher la liste des participants et permettre l'ajout/retrait.
-    - [ ] **Sous-tâche 11.1.1 :** Composant `ParticipantManager.vue`.
+    - [x] **Sous-tâche 11.1.1 :** Composant `ParticipantManager.vue`.
         - **Emplacement :** `frontend/components/ParticipantManager.vue` (ou nom similaire).
         - **Fonctionnalité :**
             - Affiche la liste des participants de la conversation active (reçue via props ou store).
@@ -16,30 +16,30 @@
             - Fournit un bouton "Retirer" à côté de chaque participant (sauf l'utilisateur courant).
             - Émet des événements (ex: `@add-participant`, `@remove-participant`) avec le `username` concerné.
         - **Composants Shadcn :** `Dialog`, `Sheet`, `List`, `Button`, `Input`, `Avatar` (optionnel).
-    - [ ] **Sous-tâche 11.1.2 :** Intégrer dans la vue de chat ou les détails de la conversation.
+    - [x] **Sous-tâche 11.1.2 :** Intégrer dans la vue de chat ou les détails de la conversation.
         - Ajoutez un bouton ou une option dans l'interface de chat (ex: barre de titre, menu) pour ouvrir le `ParticipantManager`.
     - **Vérification :** L'interface pour voir, ajouter et initier le retrait de participants est accessible et fonctionnelle.
 
-- [ ] **Tâche 11.2 : Implémenter la logique d'ajout de participant.**
+- [x] **Tâche 11.2 : Implémenter la logique d'ajout de participant.**
     - **Instruction :** Dans `useConversations.ts`, implémentez la fonction `addParticipant`.
-    - [ ] **Sous-tâche 11.2.1 :** Définir `addParticipant(conversationId: number, usernameToAdd: string)`.
+    - [x] **Sous-tâche 11.2.1 :** Définir `addParticipant(conversationId: number, usernameToAdd: string)`.
         - Ajoutez la fonction asynchrone au composable.
-    - [ ] **Sous-tâche 11.2.2 :** Implémenter le flux d'ajout.
+    - [x] **Sous-tâche 11.2.2 :** Implémenter le flux d'ajout.
         - Récupérez la clé de session actuelle (`sessionKey`) pour `conversationId` depuis `conversationStore`. Si non trouvée, erreur.
         - Récupérez la clé publique de `usernameToAdd` via l'API (`GET /users/{usernameToAdd}/public_key`). Décodez-la.
         - Chiffrez `sessionKey` avec la clé publique de l'utilisateur à ajouter : `encryptedSessionKey = await useCrypto().encryptAsymmetric(sessionKey, userToAddPublicKey)`. (Utiliser `crypto_box_seal`).
         - Encodez `encryptedSessionKey` en Base64/Hex.
         - Appelez l'API `POST /conversations/{conversationId}/participants` avec `{ userId: usernameToAdd, encryptedSessionKey: encodedKey }`.
         - Gérez la réponse (succès/erreur). En cas de succès, mettez à jour l'état local des participants dans le store (ou attendez la notification WebSocket).
-    - [ ] **Sous-tâche 11.2.3 :** Connecter à l'UI.
+    - [x] **Sous-tâche 11.2.3 :** Connecter à l'UI.
         - Dans `ParticipantManager.vue`, appelez `useConversations().addParticipant` lorsque l'utilisateur confirme l'ajout. Affichez feedback/erreurs.
     - **Vérification :** L'ajout d'un participant via l'UI déclenche la récupération de sa clé publique, le chiffrement de la clé de session actuelle pour lui, et l'appel API correspondant.
 
-- [ ] **Tâche 11.3 : Implémenter la logique de retrait de participant (avec rotation de clé).**
+- [x] **Tâche 11.3 : Implémenter la logique de retrait de participant (avec rotation de clé).**
     - **Instruction :** Dans `useConversations.ts`, implémentez la fonction `removeParticipant`. C'est l'opération la plus complexe car elle implique la génération et la distribution d'une nouvelle clé.
-    - [ ] **Sous-tâche 11.3.1 :** Définir `removeParticipant(conversationId: number, usernameToRemove: string)`.
+    - [x] **Sous-tâche 11.3.1 :** Définir `removeParticipant(conversationId: number, usernameToRemove: string)`.
         - Ajoutez la fonction asynchrone au composable.
-    - [ ] **Sous-tâche 11.3.2 :** Implémenter le flux de retrait et rotation de clé.
+    - [x] **Sous-tâche 11.3.2 :** Implémenter le flux de retrait et rotation de clé.
         - Récupérez la liste actuelle des participants de `conversationId` depuis `conversationStore`.
         - Identifiez les participants *restants* (excluant `usernameToRemove`).
         - Générez une **nouvelle** clé de session : `newSessionKey = useCrypto().generateSessionKey()`.
@@ -53,19 +53,19 @@
         - **En cas de succès :**
             a. Mettez à jour la clé de session stockée localement pour `conversationId` avec `newSessionKey` dans `conversationStore`.
             b. Mettez à jour la liste des participants dans `conversationStore`.
-    - [ ] **Sous-tâche 11.3.3 :** Connecter à l'UI.
+    - [x] **Sous-tâche 11.3.3 :** Connecter à l'UI.
         - Dans `ParticipantManager.vue`, appelez `useConversations().removeParticipant` lorsque l'utilisateur clique sur "Retirer". Affichez feedback/erreurs.
     - **Vérification :** Le retrait d'un participant déclenche la génération d'une nouvelle clé de session, son chiffrement pour tous les membres restants, l'appel API pour mettre à jour le serveur, et la mise à jour de la clé de session locale et de la liste des participants.
 
-- [ ] **Tâche 11.4 : Gérer les notifications WebSocket pour les changements de participants.**
+- [x] **Tâche 11.4 : Gérer les notifications WebSocket pour les changements de participants.**
     - **Instruction :** Modifiez le handler `onmessage` dans `useWebSocket.ts` (Tâche 9.3.3) pour traiter les types d'événements `participantAdded`, `keyRotation`, et `removedFromConversation`.
-    - [ ] **Sous-tâche 11.4.1 :** Gérer `participantAdded`.
+    - [x] **Sous-tâche 11.4.1 :** Gérer `participantAdded`.
         - Lorsque ce type est reçu :
             - Extrayez `conversationId`, `userId` (nouveau participant), `publicKey` (du nouveau participant).
             - Mettez à jour la liste des participants pour `conversationId` dans `conversationStore`.
             - Affichez une notification dans l'UI de chat (ex: "David a rejoint la conversation").
             - **Note :** Comme décidé précédemment, le client ne reçoit pas la clé de session chiffrée pour lui dans cette notif. Il devra la récupérer s'il en a besoin (ce qui n'est pas le cas ici, car il a déjà la clé s'il est dans la conversation).
-    - [ ] **Sous-tâche 11.4.2 :** Gérer `keyRotation`.
+    - [x] **Sous-tâche 11.4.2 :** Gérer `keyRotation`.
         - Lorsque ce type est reçu :
             - Extrayez `conversationId`, `removedUserId`, `remainingParticipants`, `newEncryptedSessionKey` (celle chiffrée pour *moi*).
             - Récupérez la clé privée de l'utilisateur courant depuis `authStore`.
@@ -76,7 +76,7 @@
                 - Mettez à jour la liste des participants dans `conversationStore` avec `remainingParticipants`.
                 - Affichez une notification (ex: "Bob a été retiré. La clé de session a été mise à jour.").
             - Si le déchiffrement échoue, logguer une erreur critique.
-    - [ ] **Sous-tâche 11.4.3 :** Gérer `removedFromConversation`.
+    - [x] **Sous-tâche 11.4.3 :** Gérer `removedFromConversation`.
         - Lorsque ce type est reçu :
             - Extrayez `conversationId`.
             - Supprimez la conversation de la liste dans `conversationStore`.

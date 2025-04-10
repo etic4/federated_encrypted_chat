@@ -95,10 +95,64 @@ export function useCrypto() {
     return sodium.crypto_sign_verify_detached(signature, message, publicKey)
   }
 
-  const calculateSafetyNumber = async (publicKey1: Uint8Array, publicKey2: Uint8Array) => {
+  const calculateSafetyNumber = async (
+    myPublicKey: Uint8Array,
+    theirPublicKey: Uint8Array,
+    myId: string,
+    theirId: string
+  ): Promise<string> => {
     const sodium = await getSodium()
-    const concat = sodium.to_base64(publicKey1) + sodium.to_base64(publicKey2)
-    return sodium.crypto_generichash(32, concat)
+
+    // Convertir les clés en base64
+    const myKeyB64 = sodium.to_base64(myPublicKey)
+    const theirKeyB64 = sodium.to_base64(theirPublicKey)
+
+    // Déterminer l'ordre stable basé sur les IDs
+    let concatStr: string
+    if (myId < theirId) {
+      concatStr = myId + myKeyB64 + theirId + theirKeyB64
+    } else {
+      concatStr = theirId + theirKeyB64 + myId + myKeyB64
+    }
+
+    // Convertir en Uint8Array UTF-8
+    const encoder = new TextEncoder()
+    const dataToHash = encoder.encode(concatStr)
+
+    // Hasher avec SHA-512
+    const fullHash = sodium.crypto_hash_sha512(dataToHash)
+
+    // Tronquer à 30 premiers octets (240 bits)
+    const truncatedHash = fullHash.slice(0, 30)
+
+    // Convertir en une chaîne de chiffres lisibles
+    let bitBuffer = 0
+    let bitBufferLen = 0
+    const digits: string[] = []
+
+    for (const byte of truncatedHash) {
+      bitBuffer = (bitBuffer << 8) | byte
+      bitBufferLen += 8
+      while (bitBufferLen >= 10) { // groupes de 10 bits
+        bitBufferLen -= 10
+        const number = (bitBuffer >> bitBufferLen) & 0x3ff // 10 bits = 0..1023
+        digits.push(number.toString().padStart(4, '0')) // 4 chiffres avec padding
+      }
+    }
+
+    // S'il reste des bits, on les traite aussi
+    if (bitBufferLen > 0) {
+      const number = (bitBuffer & ((1 << bitBufferLen) - 1)) << (10 - bitBufferLen)
+      digits.push((number & 0x3ff).toString().padStart(4, '0'))
+    }
+
+    // Concaténer les groupes avec des espaces tous les 5 groupes (20 chiffres)
+    const groups: string[] = []
+    for (let i = 0; i < digits.length; i += 5) {
+      groups.push(digits.slice(i, i + 5).join(''))
+    }
+
+    return groups.join(' ')
   }
 
   const toBase64 = async (data: Uint8Array) => {
@@ -172,4 +226,4 @@ export function useCrypto() {
   }
 }
 
-export {}
+export { getSodium }

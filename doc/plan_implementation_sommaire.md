@@ -61,16 +61,16 @@ Ce document présente la vue d'ensemble du plan d'implémentation pour le projet
   - [x] Tâche 10.2 : Implémenter l'endpoint `PUT /conversations/{conv_id}/session_key` pour la rotation de clé.
   - [x] Tâche 10.3 : Implémenter la diffusion WebSocket pour les événements de participants (ajout, retrait/rotation).
 
-- [ ] **Bloc 11 : [Frontend - Gestion des Participants et Rotation de Clé](./plan_bloc_11_frontend_participants.md)**
-  - [ ] Tâche 11.1 : Créer les composants UI pour gérer les participants d'une conversation.
-  - [ ] Tâche 11.2 : Implémenter la logique d'ajout de participant (récupération PK, chiffrement SK_Session, appel API).
-  - [ ] Tâche 11.3 : Implémenter la logique de retrait de participant (génération nouvelle SK_Session, chiffrement pour restants, appel API).
-  - [ ] Tâche 11.4 : Gérer les notifications WebSocket pour les changements de participants et la rotation de clé.
+- [x] **Bloc 11 : [Frontend - Gestion des Participants et Rotation de Clé](./plan_bloc_11_frontend_participants.md)**
+  - [x] Tâche 11.1 : Créer les composants UI pour gérer les participants d'une conversation.
+  - [x] Tâche 11.2 : Implémenter la logique d'ajout de participant (récupération PK, chiffrement SK_Session, appel API).
+  - [x] Tâche 11.3 : Implémenter la logique de retrait de participant (génération nouvelle SK_Session, chiffrement pour restants, appel API).
+  - [x] Tâche 11.4 : Gérer les notifications WebSocket pour les changements de participants et la rotation de clé.
 
-- [ ] **Bloc 12 : [Frontend - Vérification des Clés (Numéros de Sécurité)](./plan_bloc_12_frontend_safety_numbers.md)**
-  - [ ] Tâche 12.1 : Implémenter le calcul des numéros de sécurité dans `useCrypto`.
-  - [ ] Tâche 12.2 : Créer le composant UI (modal) pour afficher les numéros de sécurité et marquer comme vérifié.
-  - [ ] Tâche 12.3 : Gérer l'état "vérifié" et les alertes de changement de clé publique (via WebSocket).
+- [x] **Bloc 12 : [Frontend - Vérification des Clés (Numéros de Sécurité)](./plan_bloc_12_frontend_safety_numbers.md)**
+  - [x] Tâche 12.1 : Implémenter le calcul des numéros de sécurité dans `useCrypto`.
+  - [x] Tâche 12.2 : Créer le composant UI (modal) pour afficher les numéros de sécurité et marquer comme vérifié.
+  - [x] Tâche 12.3 : Gérer l'état "vérifié" et les alertes de changement de clé publique (via WebSocket).
 
 - [ ] **Bloc 13 : [Finalisation, Tests et Documentation](./plan_bloc_13_finalisation.md)**
   - [ ] Tâche 13.1 : Écrire les tests unitaires et d'intégration (Backend et Frontend).
