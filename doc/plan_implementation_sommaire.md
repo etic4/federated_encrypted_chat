@@ -25,41 +25,41 @@ Ce document présente la vue d'ensemble du plan d'implémentation pour le projet
   - [x] Tâche 4.3 : Implémenter l'endpoint `/auth/verify` (avec génération de token).
   - [x] Tâche 4.4 : Implémenter l'endpoint `/auth/change-password`.
 
-- [ ] **Bloc 05 : [Frontend - Authentification Utilisateur](./plan_bloc_05_frontend_auth.md)**
-  - [ ] Tâche 5.1 : Créer les pages et composants UI pour l'inscription et la connexion.
-  - [ ] Tâche 5.2 : Implémenter la logique d'inscription dans `useAuth` (appel crypto et API).
-  - [ ] Tâche 5.3 : Implémenter la logique de connexion dans `useAuth` (KDF, déchiffrement clé, signature challenge, appel API, stockage token/clé privée).
-  - [ ] Tâche 5.4 : Implémenter la logique de changement de mot de passe.
-  - [ ] Tâche 5.5 : Mettre en place la gestion de l'état d'authentification (Pinia store `auth.ts`).
+- [x] **Bloc 05 : [Frontend - Authentification Utilisateur](./plan_bloc_05_frontend_auth.md)**
+  - [x] Tâche 5.1 : Créer les pages et composants UI pour l'inscription et la connexion.
+  - [x] Tâche 5.2 : Implémenter la logique d'inscription dans `useAuth` (appel crypto et API).
+  - [x] Tâche 5.3 : Implémenter la logique de connexion dans `useAuth` (KDF, déchiffrement clé, signature challenge, appel API, stockage token/clé privée).
+  - [x] Tâche 5.4 : Implémenter la logique de changement de mot de passe.
+  - [x] Tâche 5.5 : Mettre en place la gestion de l'état d'authentification (Pinia store `auth.ts`).
 
-- [ ] **Bloc 06 : [Backend - API Utilisateurs et Conversations (Base)](./plan_bloc_06_backend_conv_base.md)**
-  - [ ] Tâche 6.1 : Implémenter l'endpoint `GET /users/{username}/public_key`.
-  - [ ] Tâche 6.2 : Implémenter l'endpoint `POST /conversations`.
-  - [ ] Tâche 6.3 : Implémenter l'endpoint `GET /conversations`.
+- [x] **Bloc 06 : [Backend - API Utilisateurs et Conversations (Base)](./plan_bloc_06_backend_conv_base.md)**
+  - [x] Tâche 6.1 : Implémenter l'endpoint `GET /users/{username}/public_key`.
+  - [x] Tâche 6.2 : Implémenter l'endpoint `POST /conversations`.
+  - [x] Tâche 6.3 : Implémenter l'endpoint `GET /conversations`.
 
-- [ ] **Bloc 07 : [Frontend - Gestion des Conversations (Base)](./plan_bloc_07_frontend_conv_base.md)**
-  - [ ] Tâche 7.1 : Créer les composants UI pour lister les conversations et en créer une nouvelle.
-  - [ ] Tâche 7.2 : Implémenter la logique de récupération et d'affichage des conversations (`useConversations`, `useApi`).
-  - [ ] Tâche 7.3 : Implémenter la logique de création de conversation (sélection participants, récupération PKs, génération SK_Session, chiffrement SK_Session, appel API).
-  - [ ] Tâche 7.4 : Mettre en place la gestion de l'état des conversations (Pinia store `conversations.ts`).
+- [x] **Bloc 07 : [Frontend - Gestion des Conversations (Base)](./plan_bloc_07_frontend_conv_base.md)**
+  - [x] Tâche 7.1 : Créer les composants UI pour lister les conversations et en créer une nouvelle.
+  - [x] Tâche 7.2 : Implémenter la logique de récupération et d'affichage des conversations (`useConversations`, `useApi`).
+  - [x] Tâche 7.3 : Implémenter la logique de création de conversation (sélection participants, récupération PKs, génération SK_Session, chiffrement SK_Session, appel API).
+  - [x] Tâche 7.4 : Mettre en place la gestion de l'état des conversations (Pinia store `conversations.ts`).
 
-- [ ] **Bloc 08 : [Backend - API Messages et WebSockets](./plan_bloc_08_backend_msg_ws.md)**
-  - [ ] Tâche 8.1 : Implémenter l'endpoint `POST /messages`.
-  - [ ] Tâche 8.2 : Implémenter l'endpoint `GET /conversations/{conv_id}/messages` (avec pagination).
-  - [ ] Tâche 8.3 : Mettre en place le serveur WebSocket (`/ws`) avec authentification.
-  - [ ] Tâche 8.4 : Implémenter la diffusion des messages via WebSocket.
+- [x] **Bloc 08 : [Backend - API Messages et WebSockets](./plan_bloc_08_backend_msg_ws.md)**
+  - [x] Tâche 8.1 : Implémenter l'endpoint `POST /messages`.
+  - [x] Tâche 8.2 : Implémenter l'endpoint `GET /conversations/{conv_id}/messages` (avec pagination).
+  - [x] Tâche 8.3 : Mettre en place le serveur WebSocket (`/ws`) avec authentification.
+  - [x] Tâche 8.4 : Implémenter la diffusion des messages via WebSocket.
 
-- [ ] **Bloc 09 : [Frontend - Messagerie et WebSockets](./plan_bloc_09_frontend_msg_ws.md)**
-  - [ ] Tâche 9.1 : Créer les composants UI pour afficher les messages et l'input d'envoi.
-  - [ ] Tâche 9.2 : Implémenter la logique d'envoi de message (`useMessages`, `useCrypto`, `useApi`).
-  - [ ] Tâche 9.3 : Implémenter la connexion WebSocket (`useWebSocket`) et la réception/dispatch des messages.
-  - [ ] Tâche 9.4 : Implémenter le déchiffrement et l'affichage des messages reçus (temps réel et historique).
-  - [ ] Tâche 9.5 : Mettre en place la gestion de l'état des messages (Pinia store `messages.ts`).
+- [x] **Bloc 09 : [Frontend - Messagerie et WebSockets](./plan_bloc_09_frontend_msg_ws.md)**
+  - [x] Tâche 9.1 : Créer les composants UI pour afficher les messages et l'input d'envoi.
+  - [x] Tâche 9.2 : Implémenter la logique d'envoi de message (`useMessages`, `useCrypto`, `useApi`).
+  - [x] Tâche 9.3 : Implémenter la connexion WebSocket (`useWebSocket`) et la réception/dispatch des messages.
+  - [x] Tâche 9.4 : Implémenter le déchiffrement et l'affichage des messages reçus (temps réel et historique).
+  - [x] Tâche 9.5 : Mettre en place la gestion de l'état des messages (Pinia store `messages.ts`).
 
-- [ ] **Bloc 10 : [Backend - API Gestion des Participants](./plan_bloc_10_backend_participants.md)**
-  - [ ] Tâche 10.1 : Implémenter l'endpoint `POST /conversations/{conv_id}/participants`.
-  - [ ] Tâche 10.2 : Implémenter l'endpoint `PUT /conversations/{conv_id}/session_key` pour la rotation de clé.
-  - [ ] Tâche 10.3 : Implémenter la diffusion WebSocket pour les événements de participants (ajout, retrait/rotation).
+- [x] **Bloc 10 : [Backend - API Gestion des Participants](./plan_bloc_10_backend_participants.md)**
+  - [x] Tâche 10.1 : Implémenter l'endpoint `POST /conversations/{conv_id}/participants`.
+  - [x] Tâche 10.2 : Implémenter l'endpoint `PUT /conversations/{conv_id}/session_key` pour la rotation de clé.
+  - [x] Tâche 10.3 : Implémenter la diffusion WebSocket pour les événements de participants (ajout, retrait/rotation).
 
 - [ ] **Bloc 11 : [Frontend - Gestion des Participants et Rotation de Clé](./plan_bloc_11_frontend_participants.md)**
   - [ ] Tâche 11.1 : Créer les composants UI pour gérer les participants d'une conversation.

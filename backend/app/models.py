@@ -1,6 +1,15 @@
-from typing import Optional, Any
+from typing import Optional
 from datetime import datetime
-from sqlalchemy import  ForeignKey, LargeBinary, Integer, JSON, DateTime, String, UniqueConstraint, Index
+from sqlalchemy import (
+    Integer,
+    String,
+    ForeignKey,
+    LargeBinary,
+    JSON,
+    DateTime,
+    UniqueConstraint,
+    Index
+)
 
 from sqlalchemy.orm import Mapped, DeclarativeBase, mapped_column, relationship
 from sqlalchemy.sql import func
@@ -16,7 +25,7 @@ class User(Base):
     public_key: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     encrypted_private_key: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     kdf_salt: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
-    kdf_params: Mapped[Any] = mapped_column(JSON, nullable=False)
+    kdf_params: Mapped[dict] = mapped_column(JSON, nullable=False)
 
     participations = relationship("Participant", back_populates="user", cascade="all, delete-orphan")
     sent_messages = relationship("Message", back_populates="sender", cascade="all, delete-orphan")

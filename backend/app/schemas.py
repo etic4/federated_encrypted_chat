@@ -7,7 +7,7 @@ class UserCreate(BaseModel):
     publicKey: str  # Base64/Hex encoded
     encryptedPrivateKey: str  # Base64/Hex encoded
     kdfSalt: str  # Base64/Hex encoded
-    kdfParams: Any  # Ou un modèle plus spécifique
+    kdfParams: dict  # Ou un modèle plus spécifique
 
 class Token(BaseModel):
     accessToken: str
@@ -67,9 +67,28 @@ class ConversationListResponse(BaseModel):
     conversations: List[ConversationListInfo]
 
 class ParticipantAddRequest(BaseModel):
-    userId: str  # Username
-    encryptedSessionKey: str  # Base64/Hex
+    userId: int  # ID utilisateur
+    encryptedSessionKey: str  # Base64 (clé chiffrée)
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "userId": 42,
+                "encryptedSessionKey": "QmFzZTY0RW5jb2RlZENsZQ=="
+            }
+        }
 
 class SessionKeyUpdateRequest(BaseModel):
     participants: List[str]  # Usernames restants
     newEncryptedKeys: Dict[str, str]  # username: newEncryptedKey
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "participants": ["alice", "bob"],
+                "newEncryptedKeys": {
+                    "alice": "QWxpY2VLZXk=",
+                    "bob": "Qm9iS2V5"
+                }
+            }
+        }

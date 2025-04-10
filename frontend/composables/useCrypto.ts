@@ -1,10 +1,16 @@
 import { ref } from 'vue'
 
+declare global {
+  interface GlobalThis {
+    $sodium: typeof import('libsodium-wrappers')
+  }
+}
+
 const getSodium = async () => {
-  if (!globalThis.$sodium) {
+  if (!(globalThis as any).$sodium) {
     throw new Error('Libsodium is not initialized')
   }
-  return globalThis.$sodium
+  return (globalThis as any).$sodium
 }
 
 export function useCrypto() {
@@ -105,6 +111,21 @@ export function useCrypto() {
     return sodium.from_base64(data)
   }
 
+  const decodeBase64 = async (str: string, variant?: number): Promise<Uint8Array> => {
+    const sodium = await getSodium()
+    return sodium.from_base64(str, variant)
+  }
+
+  const secretboxOpenEasy = async (cipher: Uint8Array, nonce: Uint8Array, key: Uint8Array): Promise<Uint8Array | null> => {
+    const sodium = await getSodium()
+    return sodium.crypto_secretbox_open_easy(cipher, nonce, key)
+  }
+
+  const getSecretboxNonceBytes = async (): Promise<number> => {
+    const sodium = await getSodium()
+    return sodium.crypto_secretbox_NONCEBYTES
+  }
+
   const toHex = async (data: Uint8Array) => {
     const sodium = await getSodium()
     return sodium.to_hex(data)
@@ -141,9 +162,14 @@ export function useCrypto() {
     calculateSafetyNumber,
     toBase64,
     fromBase64,
+    decodeBase64,
+    secretboxOpenEasy,
+    getSecretboxNonceBytes,
     toHex,
     fromHex,
     stringToUint8Array,
     uint8ArrayToString
   }
 }
+
+export {}

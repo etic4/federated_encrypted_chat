@@ -11,7 +11,7 @@ SECRET_KEY = os.getenv("SECRET_KEY", secrets.token_urlsafe(32))
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/verify") # Utilise /auth/verify comme URL indicative
 
 class TokenData(BaseModel):
     username: Optional[str] = None
@@ -43,6 +43,6 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     # Pour l'instant, nous retournons juste le username.
     # Plus tard, on pourrait vouloir récupérer l'objet User complet.
     return token_data.username
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/verify") # Utilise /auth/verify comme URL indicative
+
 
 # Ajouter une fonction pour décoder/valider le token si nécessaire pour la protection des endpoints
