@@ -1,43 +1,3 @@
-<template>
-  <div v-if="visible" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div class="bg-white rounded-lg shadow-lg p-6 max-w-lg w-full">
-      <h2 class="text-xl font-semibold mb-4">Numéro de sécurité</h2>
-
-      <div v-if="loading" class="text-center">Calcul en cours...</div>
-      <div v-else>
-        <p class="mb-2">
-          <strong>Vous :</strong> {{ myId }}
-        </p>
-        <p class="mb-2">
-          <strong>{{ participantUsername }} :</strong> {{ theirId }}
-        </p>
-
-        <div v-if="needsReverification" class="mb-4 p-2 rounded bg-red-100 text-red-700 border border-red-300 text-center">
-          Attention : la clé publique de ce contact a changé.<br>
-          Veuillez revérifier son identité avant de marquer comme vérifié.
-        </div>
-
-        <p class="font-mono whitespace-pre-wrap break-words border p-2 rounded mb-4 text-center text-lg">
-          {{ safetyNumber }}
-        </p>
-
-        <div class="flex items-center mb-4">
-          <input
-            type="checkbox"
-            id="verified"
-            :checked="isVerified"
-            @change="toggleVerified"
-            class="mr-2"
-          />
-          <label for="verified">Marquer comme vérifié</label>
-        </div>
-
-        <button @click="close" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">Fermer</button>
-      </div>
-    </div>
-  </div>
-</template>
-
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
 import { useAuthStore } from '../stores/auth'
@@ -79,7 +39,7 @@ watch(
       loading.value = true
       try {
         // Récupérer infos utilisateur courant
-        myId.value = authStore.username
+        myId.value = authStore.user?.username
         const myPublicKey = authStore.publicKey
 
         // Récupérer clé publique du participant
@@ -129,6 +89,46 @@ function close() {
   emit('close')
 }
 </script>
+
+<template>
+  <div v-if="visible" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-lg p-6 max-w-lg w-full">
+      <h2 class="text-xl font-semibold mb-4">Numéro de sécurité</h2>
+
+      <div v-if="loading" class="text-center">Calcul en cours...</div>
+      <div v-else>
+        <p class="mb-2">
+          <strong>Vous :</strong> {{ myId }}
+        </p>
+        <p class="mb-2">
+          <strong>{{ participantUsername }} :</strong> {{ theirId }}
+        </p>
+
+        <div v-if="needsReverification" class="mb-4 p-2 rounded bg-red-100 text-red-700 border border-red-300 text-center">
+          Attention : la clé publique de ce contact a changé.<br>
+          Veuillez revérifier son identité avant de marquer comme vérifié.
+        </div>
+
+        <p class="font-mono whitespace-pre-wrap break-words border p-2 rounded mb-4 text-center text-lg">
+          {{ safetyNumber }}
+        </p>
+
+        <div class="flex items-center mb-4">
+          <input
+            type="checkbox"
+            id="verified"
+            :checked="isVerified"
+            @change="toggleVerified"
+            class="mr-2"
+          />
+          <label for="verified">Marquer comme vérifié</label>
+        </div>
+
+        <button @click="close" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">Fermer</button>
+      </div>
+    </div>
+  </div>
+</template>
 
 <style scoped>
 /* Style minimal pour le modal */

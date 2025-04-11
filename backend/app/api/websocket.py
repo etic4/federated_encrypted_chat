@@ -3,7 +3,7 @@ from jose import jwt, JWTError
 from starlette.websockets import WebSocketState
 import asyncio
 
-from backend.app.security import SECRET_KEY, ALGORITHM
+from app.security import SECRET_KEY, ALGORITHM
 
 router = APIRouter()
 

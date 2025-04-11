@@ -6,21 +6,31 @@
         <CardDescription>Create an account to start using our service.</CardDescription>
       </CardHeader>
       <CardContent>
-        <form @submit.prevent="onSubmit">
+        <Form :initial-values="{ username: '', password: '' }" @submit="onSubmit" v-slot="{ errors }">
           <div class="grid gap-4">
-            <div class="space-y-2">
-              <label for="username" class="text-right inline-block w-24">Username</label>
-              <Input id="username" placeholder="Enter your username" v-model="username" />
-            </div>
-            <div class="space-y-2">
-              <label for="password" class="text-right inline-block w-24">Password</label>
-              <Input id="password" type="password" placeholder="Enter your password" v-model="password" />
-            </div>
+            <FormField name="username" v-slot="{ field }">
+              <FormItem>
+                <FormLabel for="username">Username</FormLabel>
+                <FormControl>
+                  <Input id="username" placeholder="Enter your username" v-bind="field" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            </FormField>
+            <FormField name="password" v-slot="{ field }">
+              <FormItem>
+                <FormLabel for="password">Password</FormLabel>
+                <FormControl>
+                  <Input id="password" type="password" placeholder="Enter your password" v-bind="field" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            </FormField>
             <Button type="submit" :disabled="isLoading">
               {{ isLoading ? 'Registering...' : 'Register' }}
             </Button>
           </div>
-        </form>
+        </Form>
         <div v-if="errorMessage" class="text-red-500 mt-4">{{ errorMessage }}</div>
       </CardContent>
     </Card>
@@ -35,19 +45,17 @@ import { Input } from '~/components/ui/input'
 import { Button } from '~/components/ui/button'
 import { useAuth } from '~/composables/useAuth'
 
-const username = ref('');
-const password = ref('');
 const errorMessage = ref('');
 const isLoading = ref(false);
 const router = useRouter();
 const auth = useAuth();
 
-const onSubmit = async () => {
+const onSubmit = async (values) => {
   try {
     isLoading.value = true;
     errorMessage.value = '';
     
-    await auth.registerUser(username.value, password.value);
+    await auth.registerUser(values.username, values.password);
     router.push('/');
   } catch (error) {
     errorMessage.value = 'Registration failed. Please try again.';

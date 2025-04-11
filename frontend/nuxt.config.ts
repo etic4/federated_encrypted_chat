@@ -3,13 +3,15 @@ export default defineNuxtConfig({
   compatibilityDate: "2024-11-01",
   devtools: { enabled: true },
 
+  css: ['~/main.css'],
+
   vite: {
     plugins: [
       tailwindcss(),
     ],
   },
 
-  modules: ["shadcn-nuxt"],
+  modules: ["@pinia/nuxt", "shadcn-nuxt"],
   shadcn: {
     /**
      * Prefix for all the imported component
@@ -20,5 +22,11 @@ export default defineNuxtConfig({
      * @default "./components/ui"
      */
     componentDir: './components/ui'
+  },
+
+  runtimeConfig: {
+    public: {
+      apiBase: process.env.API_BASE_URL || 'http://localhost:8000'
+    }
   }
 });

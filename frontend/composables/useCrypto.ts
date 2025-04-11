@@ -29,19 +29,33 @@ export function useCrypto() {
 
   const deriveKeyFromPassword = async (password: string, salt: Uint8Array) => {
     const sodium = await getSodium()
-    return sodium.crypto_pwhash(
-      sodium.crypto_secretbox_KEYBYTES,
+
+    const keyLength = sodium.crypto_secretbox_KEYBYTES
+
+    const key = sodium.crypto_pwhash(
+      keyLength,
       password,
       salt,
       sodium.crypto_pwhash_OPSLIMIT_MODERATE,
       sodium.crypto_pwhash_MEMLIMIT_MODERATE,
       sodium.crypto_pwhash_ALG_DEFAULT
     )
+
+    return {
+      key,
+      params: {
+        algorithm: "argon2id",
+        iterations: sodium.crypto_pwhash_OPSLIMIT_MODERATE,
+        memory: sodium.crypto_pwhash_MEMLIMIT_MODERATE,
+        parallelism: 1
+      }
+    }
   }
 
-  const generateKdfSalt = async () => {
+  const generateKdfSalt = async (length?: number) => {
     const sodium = await getSodium()
-    return sodium.randombytes_buf(sodium.crypto_pwhash_SALTBYTES)
+    const saltLength = length ?? sodium.crypto_pwhash_SALTBYTES
+    return sodium.randombytes_buf(saltLength)
   }
 
   const encryptPrivateKey = async (privateKey: Uint8Array, key: Uint8Array) => {

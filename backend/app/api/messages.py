@@ -7,7 +7,7 @@ from app.models import User, Participant, Message
 from app.schemas import MessageCreate
 import base64
 from sqlalchemy.orm import selectinload
-from backend.app.api.websocket import manager
+from app.api.websocket import manager
 
 router = APIRouter()
 

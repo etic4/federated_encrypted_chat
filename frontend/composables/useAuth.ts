@@ -1,7 +1,7 @@
 import { useCrypto } from "./useCrypto";
-import { Buffer } from 'node:buffer';
 import type { KdfParams } from "~/types/kdfParams";
 import { useAuthStore } from "~/stores/auth";
+import { useApiFetch } from "./useApiFetch";
 
 interface ChallengeResponse {
   challenge: string;
@@ -20,6 +20,7 @@ interface AuthResponse {
 }
 
 export const useAuth = () => {
+
   const authStore = useAuthStore();
   authStore.initializeFromStorage();
   const registerUser = async (username: string, password: string) => {
@@ -38,16 +39,16 @@ export const useAuth = () => {
     const encryptionResult = await useCrypto().encryptPrivateKey(privateKey, keyK);
     const ciphertext = encryptionResult.cipher;
     const nonce = encryptionResult.nonce;
-    const encryptedPrivateKey = Buffer.concat([nonce, ciphertext]);
+    const encryptedPrivateKey = new Uint8Array([...nonce, ...ciphertext]);
 
     // 5. Encodez publicKey, encryptedPrivateKey, kdfSalt en Base64/Hex.
-    const publicKeyEncoded = Buffer.from(await publicKey).toString("base64");
-    const encryptedPrivateKeyEncoded = Buffer.from(await encryptedPrivateKey).toString("base64");
-    const kdfSaltEncoded = Buffer.from(await kdfSalt).toString("base64");
+    const publicKeyEncoded = btoa(String.fromCharCode(...new Uint8Array(await publicKey)));
+    const encryptedPrivateKeyEncoded = btoa(String.fromCharCode(...new Uint8Array(await encryptedPrivateKey)));
+    const kdfSaltEncoded = btoa(String.fromCharCode(...new Uint8Array(await kdfSalt)));
 
     // 6. Appelez l'API POST /auth/register avec les données formatées (username, clés encodées, sel encodé, kdfParams).
     try {
-      const response = await $fetch<AuthResponse>("/auth/register", {
+      const response = await useApiFetch<AuthResponse>("/auth/register", {
         method: "POST",
         body: {
           username,
@@ -80,7 +81,7 @@ export const useAuth = () => {
   const loginUser = async (username: string, password: string) => {
     try {
       // 1. Appelez l'API POST /auth/challenge avec { username }
-      const challengeResponse = await $fetch<ChallengeResponse>("/auth/challenge", {
+      const challengeResponse = await useApiFetch<ChallengeResponse>("/auth/challenge", {
         method: "POST",
         body: { username }
       });
@@ -94,9 +95,9 @@ export const useAuth = () => {
         kdfParams
       } = challengeResponse;
 
-      const challengeBytes = Buffer.from(challenge, "base64");
-      const encryptedPrivateKeyBytes = Buffer.from(encryptedPrivateKey, "base64");
-      const kdfSaltBytes = Buffer.from(kdfSalt, "base64");
+      const challengeBytes = Uint8Array.from(atob(challenge), c => c.charCodeAt(0));
+      const encryptedPrivateKeyBytes = Uint8Array.from(atob(encryptedPrivateKey), c => c.charCodeAt(0));
+      const kdfSaltBytes = Uint8Array.from(atob(kdfSalt), c => c.charCodeAt(0));
 
       // 3. Dérivez la clé keyK
       const { key: keyK } = await useCrypto().deriveKeyFromPassword(password, kdfSaltBytes);
@@ -108,10 +109,10 @@ export const useAuth = () => {
 
       // 5. Signez le challenge
       const signature = await useCrypto().sign(challengeBytes, privateKey);
-      const signatureEncoded = Buffer.from(signature).toString("base64");
+      const signatureEncoded = btoa(String.fromCharCode(...new Uint8Array(signature)));
 
       // 6. Vérifiez la signature avec l'API
-      const verifyResponse = await $fetch<AuthResponse>("/auth/verify", {
+      const verifyResponse = await useApiFetch<AuthResponse>("/auth/verify", {
         method: "POST",
         body: {
           username,

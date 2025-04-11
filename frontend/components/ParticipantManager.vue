@@ -1,3 +1,67 @@
+<script setup lang="ts">
+import { defineProps, defineEmits } from 'vue'
+import Button from '@/components/ui/button/Button.vue'
+import Input from '@/components/ui/input/Input.vue'
+import { useConversationsStore } from '../stores/conversations'
+import SafetyNumberModal from './SafetyNumberModal.vue'
+
+interface Participant {
+  username: string
+}
+
+const props = defineProps<{
+  participants: Participant[]
+  currentUser: string
+  conversationId: number
+}>()
+
+const emit = defineEmits<{
+  (e: 'add-participant', username: string): void
+  (e: 'remove-participant', username: string): void
+}>()
+
+const newParticipant = ref('')
+
+const conversationStore = useConversationsStore()
+
+const showModal = ref(false)
+const selectedParticipant = ref<string | null>(null)
+
+function openModal(username: string) {
+  selectedParticipant.value = username
+  showModal.value = true
+}
+
+function closeModal() {
+  showModal.value = false
+  selectedParticipant.value = null
+}
+
+function isParticipantVerified(conversationId: number, username: string): boolean {
+  return conversationStore.isParticipantVerified(conversationId, username)
+}
+
+function needsReverification(conversationId: number, username: string): boolean {
+  return conversationStore.needsReverification(conversationId, username)
+}
+
+function onAdd() {
+  const username = newParticipant.value.trim()
+  if (
+    username &&
+    !props.participants.some(p => p.username === username) &&
+    username !== props.currentUser
+  ) {
+    emit('add-participant', username)
+    newParticipant.value = ''
+  }
+}
+
+function onRemove(username: string) {
+  emit('remove-participant', username)
+}
+</script>
+
 <template>
   <div>
     <!-- En-tête -->
@@ -79,70 +143,7 @@
   </div>
 </template>
 
-<script setup lang="ts">
-import { ref, defineProps, defineEmits } from 'vue'
-import Button from '@/components/ui/button/Button.vue'
-import Input from '@/components/ui/input/Input.vue'
-import { ref } from 'vue'
-import { useConversationsStore } from '../stores/conversations'
-import SafetyNumberModal from './SafetyNumberModal.vue'
 
-interface Participant {
-  username: string
-}
-
-const props = defineProps<{
-  participants: Participant[]
-  currentUser: string
-  conversationId: number
-}>()
-
-const emit = defineEmits<{
-  (e: 'add-participant', username: string): void
-  (e: 'remove-participant', username: string): void
-}>()
-
-const newParticipant = ref('')
-
-const conversationStore = useConversationsStore()
-
-const showModal = ref(false)
-const selectedParticipant = ref<string | null>(null)
-
-function openModal(username: string) {
-  selectedParticipant.value = username
-  showModal.value = true
-}
-
-function closeModal() {
-  showModal.value = false
-  selectedParticipant.value = null
-}
-
-function isParticipantVerified(conversationId: number, username: string): boolean {
-  return conversationStore.isParticipantVerified(conversationId, username)
-}
-
-function needsReverification(conversationId: number, username: string): boolean {
-  return conversationStore.needsReverification(conversationId, username)
-}
-
-function onAdd() {
-  const username = newParticipant.value.trim()
-  if (
-    username &&
-    !props.participants.some(p => p.username === username) &&
-    username !== props.currentUser
-  ) {
-    emit('add-participant', username)
-    newParticipant.value = ''
-  }
-}
-
-function onRemove(username: string) {
-  emit('remove-participant', username)
-}
-</script>
 
 <style scoped>
 /* Optionnel : styles pour améliorer l'affichage */

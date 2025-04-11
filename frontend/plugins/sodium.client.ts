@@ -1,4 +1,4 @@
-import sodium from 'libsodium-wrappers'
+import sodium from 'libsodium-wrappers-sumo'
 
 declare global {
   interface Window {

@@ -15,6 +15,7 @@ interface ConversationResponse {
   participants: string[];
 }
 import { useCrypto } from './useCrypto';
+import { useApiFetch } from './useApiFetch';
 
 /**
  * Composable pour gérer les conversations :
@@ -31,7 +32,7 @@ export function useConversations() {
    */
   async function fetchConversations() {
     try {
-      const convos = await $fetch<ConversationListInfo[]>('/conversations', {
+      const convos = await useApiFetch<ConversationListInfo[]>('/conversations', {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${authStore.getAuthToken}`,
@@ -70,7 +71,7 @@ export function useConversations() {
       // Pour chaque participant (y compris soi-même)
       for (const participant of participantUsernames) {
         // Récupérer la clé publique du participant
-        const { publicKey: publicKeyBase64 } = await $fetch<{ publicKey: string }>(
+        const { publicKey: publicKeyBase64 } = await useApiFetch<{ publicKey: string }>(
           `/users/${participant}/public_key`,
           {
             method: 'GET',
@@ -92,7 +93,7 @@ export function useConversations() {
       }
 
       // Appel API création conversation
-      const response = await $fetch<ConversationResponse>('/conversations', {
+      const response = await useApiFetch<ConversationResponse>('/conversations', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${authStore.getAuthToken}`,
@@ -128,7 +129,7 @@ export function useConversations() {
       if (!sessionKey) throw new Error('Clé de session introuvable pour cette conversation');
 
       // 2. Récupérer la clé publique du nouvel utilisateur via l’API
-      const { publicKey: publicKeyBase64 } = await $fetch<{ publicKey: string }>(
+      const { publicKey: publicKeyBase64 } = await useApiFetch<{ publicKey: string }>(
         `/users/${usernameToAdd}/public_key`,
         {
           method: 'GET',
@@ -150,7 +151,7 @@ export function useConversations() {
       const encryptedSessionKeyBase64 = await crypto.toBase64(encryptedSessionKey);
 
       // 5. Appeler l’API POST /conversations/{conversationId}/participants
-      await $fetch(`/conversations/${conversationId}/participants`, {
+      await useApiFetch(`/conversations/${conversationId}/participants`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${authStore.getAuthToken}`,
@@ -195,7 +196,7 @@ export function useConversations() {
       const newEncryptedKeys: Record<string, string> = {};
       for (const participant of remainingUsernames) {
         // Récupérer la clé publique via API
-        const { publicKey: publicKeyBase64 } = await $fetch<{ publicKey: string }>(
+        const { publicKey: publicKeyBase64 } = await useApiFetch<{ publicKey: string }>(
           `/users/${participant}/public_key`,
           {
             method: 'GET',
@@ -212,7 +213,7 @@ export function useConversations() {
         newEncryptedKeys[participant] = encryptedSessionKeyBase64;
       }
       // 5. Appeler l’API PUT /conversations/{conversationId}/session_key
-      await $fetch(`/conversations/${conversationId}/session_key`, {
+      await useApiFetch(`/conversations/${conversationId}/session_key`, {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${authStore.getAuthToken}`,

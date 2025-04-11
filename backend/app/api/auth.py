@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 import secrets
 import base64
 
@@ -14,8 +15,9 @@ router = APIRouter()
 
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
-def register_user(user_in: UserCreate, db: Session = Depends(get_db)):
-    db_user = db.query(User).filter(User.username == user_in.username).first()
+async def register_user(user_in: UserCreate, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(User).where(User.username == user_in.username))
+    db_user = result.scalars().first()
     if db_user:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="Username already registered"
@@ -23,14 +25,15 @@ def register_user(user_in: UserCreate, db: Session = Depends(get_db)):
 
     db_user = User(**user_in.dict())
     db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
+    await db.commit()
+    await db.refresh(db_user)
     return {"message": "User created successfully"}
 
 
 @router.post("/challenge", response_model=ChallengeResponse)
-def create_challenge(challenge_request: ChallengeRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.username == challenge_request.username).first()
+async def create_challenge(challenge_request: ChallengeRequest, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(User).where(User.username == challenge_request.username))
+    user = result.scalars().first()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
@@ -54,10 +57,11 @@ def create_challenge(challenge_request: ChallengeRequest, db: Session = Depends(
 
 
 @router.post("/verify", response_model=Token)
-def verify_signature(
-    verify_request: VerifyRequest, db: Session = Depends(get_db)
+async def verify_signature(
+    verify_request: VerifyRequest, db: AsyncSession = Depends(get_db)
 ):
-    user = db.query(User).filter(User.username == verify_request.username).first()
+    result = await db.execute(select(User).where(User.username == verify_request.username))
+    user = result.scalars().first()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
@@ -87,14 +91,15 @@ def verify_signature(
 @router.put("/change-password")
 async def change_password(
     password_request: ChangePasswordRequest,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_username: str = Depends(get_current_user),
 ):
-    user = db.query(User).filter(User.username == current_username).first()
+    result = await db.execute(select(User).where(User.username == current_username))
+    user = result.scalars().first()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
     user.encrypted_private_key = password_request.newEncryptedPrivateKey.encode('utf-8')
-    db.commit()
+    await db.commit()
     return {"message": "Password updated successfully"}

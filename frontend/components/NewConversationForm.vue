@@ -1,3 +1,33 @@
+<script setup lang="ts">
+import { ref } from 'vue'
+import UiButton from '@/components/ui/button/Button.vue'
+import { useConversations } from '@/composables/useConversations'
+
+const isOpen = ref(false)
+const selectedUsers = ref<string[]>([])
+
+// Liste factice d'utilisateurs
+const mockUsers = ['alice', 'bob', 'carol', 'dave']
+
+const { createConversation: createConv, fetchConversations } = useConversations()
+
+async function createConversation() {
+  if (selectedUsers.value.length === 0) {
+    alert('Veuillez sélectionner au moins un participant.')
+    return
+  }
+  try {
+    await createConv(selectedUsers.value)
+    isOpen.value = false
+    selectedUsers.value = []
+    await fetchConversations()
+  } catch (error) {
+    console.error('Erreur lors de la création de la conversation:', error)
+    alert('Erreur lors de la création de la conversation.')
+  }
+}
+</script>
+
 <template>
   <div>
     <ui-dialog v-model="isOpen">
@@ -28,36 +58,6 @@
     </ui-dialog>
   </div>
 </template>
-
-<script setup lang="ts">
-import { ref } from 'vue'
-import UiButton from '@/components/ui/button/Button.vue'
-import { useConversations } from '@/composables/useConversations'
-
-const isOpen = ref(false)
-const selectedUsers = ref<string[]>([])
-
-// Liste factice d'utilisateurs
-const mockUsers = ['alice', 'bob', 'carol', 'dave']
-
-const { createConversation: createConv, fetchConversations } = useConversations()
-
-async function createConversation() {
-  if (selectedUsers.value.length === 0) {
-    alert('Veuillez sélectionner au moins un participant.')
-    return
-  }
-  try {
-    await createConv(selectedUsers.value)
-    isOpen.value = false
-    selectedUsers.value = []
-    await fetchConversations()
-  } catch (error) {
-    console.error('Erreur lors de la création de la conversation:', error)
-    alert('Erreur lors de la création de la conversation.')
-  }
-}
-</script>
 
 <style scoped>
 /* Style minimal pour checkbox */

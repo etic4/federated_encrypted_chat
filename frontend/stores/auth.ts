@@ -8,6 +8,7 @@ export const useAuthStore = defineStore('auth', {
     user: null as User | null,
     token: null as string | null,
     privateKey: null as string | null,
+    publicKey: null as string | null,
     kdfSalt: null as string | null,
     kdfParams: null as KdfParams | null
   }),
@@ -17,14 +18,18 @@ export const useAuthStore = defineStore('auth', {
       this.user = user
       this.token = token
       this.isAuthenticated = true
-      sessionStorage.setItem('authToken', token)
+      if (typeof window !== 'undefined' && window.sessionStorage) {
+        sessionStorage.setItem('authToken', token)
+      }
     },
 
     initializeFromStorage() {
-      const token = sessionStorage.getItem('authToken')
-      if (token) {
-        this.token = token
-        this.isAuthenticated = true
+      if (typeof window !== 'undefined' && window.sessionStorage) {
+        const token = sessionStorage.getItem('authToken')
+        if (token) {
+          this.token = token
+          this.isAuthenticated = true
+        }
       }
     },
 
@@ -32,10 +37,13 @@ export const useAuthStore = defineStore('auth', {
       this.user = null
       this.token = null
       this.privateKey = null
+      this.publicKey = null
       this.kdfSalt = null
       this.kdfParams = null
       this.isAuthenticated = false
-      sessionStorage.removeItem('authToken')
+      if (typeof window !== 'undefined' && window.sessionStorage) {
+        sessionStorage.removeItem('authToken')
+      }
     },
 
     setToken(token: string) {
@@ -49,6 +57,10 @@ export const useAuthStore = defineStore('auth', {
     setKdfInfo(salt: string, params: KdfParams) {
       this.kdfSalt = salt
       this.kdfParams = params
+    },
+
+    setPublicKey(publicKey: string) {
+      this.publicKey = publicKey
     }
   },
 
@@ -64,6 +76,9 @@ export const useAuthStore = defineStore('auth', {
     },
     getPrivateKey(): string | null {
       return this.privateKey
+    },
+    getPublicKey(): string | null {
+      return this.publicKey
     },
     getKdfSalt(): string | null {
       return this.kdfSalt
