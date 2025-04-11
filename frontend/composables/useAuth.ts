@@ -2,22 +2,7 @@ import { useCrypto } from "./useCrypto";
 import type { KdfParams } from "~/types/kdfParams";
 import { useAuthStore } from "~/stores/auth";
 import { useApiFetch } from "./useApiFetch";
-
-interface ChallengeResponse {
-  challenge: string;
-  publicKey: string;
-  encryptedPrivateKey: string;
-  kdfSalt: string;
-  kdfParams: KdfParams;
-}
-
-interface AuthResponse {
-  token: string;
-  userId: string;
-  email: string;
-  createdAt: string;
-  updatedAt: string;
-}
+import type { AuthResponse, ChallengeResponse } from "~/types/models";
 
 export const useAuth = () => {
 
@@ -41,11 +26,12 @@ export const useAuth = () => {
     const nonce = encryptionResult.nonce;
     const encryptedPrivateKey = new Uint8Array([...nonce, ...ciphertext]);
 
-    // 5. Encodez publicKey, encryptedPrivateKey, kdfSalt en Base64/Hex.
-    const publicKeyEncoded = btoa(String.fromCharCode(...new Uint8Array(await publicKey)));
-    const encryptedPrivateKeyEncoded = btoa(String.fromCharCode(...new Uint8Array(await encryptedPrivateKey)));
-    const kdfSaltEncoded = btoa(String.fromCharCode(...new Uint8Array(await kdfSalt)));
+    // 5. Encodez publicKey, encryptedPrivateKey, kdfSalt en Base64.
+    const publicKeyEncoded = btoa(String.fromCharCode(...new Uint8Array(publicKey)));
+    const encryptedPrivateKeyEncoded = btoa(String.fromCharCode(...new Uint8Array(encryptedPrivateKey)));
+    const kdfSaltEncoded = btoa(String.fromCharCode(...new Uint8Array(kdfSalt)));
 
+  
     // 6. Appelez l'API POST /auth/register avec les données formatées (username, clés encodées, sel encodé, kdfParams).
     try {
       const response = await useApiFetch<AuthResponse>("/auth/register", {
@@ -68,8 +54,9 @@ export const useAuth = () => {
         updatedAt: response.updatedAt
       }, response.token);
       
+      authStore.setPublicKey(publicKey);
       authStore.setPrivateKey(privateKey);
-      authStore.setKdfInfo(kdfSaltEncoded, kdfParams);
+      authStore.setKdfInfo(kdfSalt, kdfParams);
       
       return response;
     } catch (error) {
@@ -89,7 +76,6 @@ export const useAuth = () => {
       // 2. Récupérez et décodez les données de la réponse
       const {
         challenge,
-        publicKey,
         encryptedPrivateKey,
         kdfSalt,
         kdfParams
@@ -131,7 +117,7 @@ export const useAuth = () => {
       }, verifyResponse.token);
       
       authStore.setPrivateKey(privateKey);
-      authStore.setKdfInfo(kdfSalt, kdfParams);
+      authStore.setKdfInfo(kdfSaltBytes, kdfParams);
       
       return verifyResponse;
     } catch (error) {

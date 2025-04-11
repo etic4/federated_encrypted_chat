@@ -39,7 +39,7 @@ watch(
       loading.value = true
       try {
         // Récupérer infos utilisateur courant
-        myId.value = authStore.user?.username
+        myId.value = authStore.user?.username ?? ''
         const myPublicKey = authStore.publicKey
 
         // Récupérer clé publique du participant
@@ -52,13 +52,16 @@ watch(
           if (!response.ok) throw new Error('Erreur récupération clé publique distante')
           const data = await response.json()
           const base64Key = data.public_key as string
-          const sodium = await import('libsodium-wrappers')
+          const sodium = await import('libsodium-wrappers-sumo')
           await sodium.ready
           theirPublicKey = sodium.from_base64(base64Key)
           conversationStore.cacheParticipantPublicKey(props.participantUsername, theirPublicKey)
         }
 
         // Calculer le numéro de sécurité
+        if (!myPublicKey) {
+          throw new Error('Clé publique locale introuvable')
+        }
         safetyNumber.value = await calculateSafetyNumber(
           myPublicKey,
           theirPublicKey,

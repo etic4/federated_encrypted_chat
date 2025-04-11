@@ -1,0 +1,9 @@
+declare global {
+  interface Window {
+    $sodium: typeof import('libsodium-wrappers-sumo')
+  }
+  interface GlobalThis {
+    $sodium: typeof import('libsodium-wrappers-sumo')
+  }
+}
+export {}

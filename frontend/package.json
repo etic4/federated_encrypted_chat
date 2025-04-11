@@ -20,7 +20,6 @@
     "clsx": "^2.1.1",
     "eslint": "^8.57.1",
     "eslint-plugin-vue": "^10.0.0",
-    "libsodium-wrappers": "^0.7.15",
     "libsodium-wrappers-sumo": "^0.7.15",
     "lucide-vue-next": "^0.487.0",
     "nuxt": "^3.16.2",

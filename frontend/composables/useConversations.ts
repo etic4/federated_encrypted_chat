@@ -3,7 +3,7 @@ import { useConversationsStore, type ConversationListInfo } from '~/stores/conve
 
 declare global {
   interface GlobalThis {
-    $sodium: typeof import('libsodium-wrappers');
+    $sodium: typeof import('libsodium-wrappers-sumo');
   }
 }
 

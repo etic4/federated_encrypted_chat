@@ -3,7 +3,6 @@ from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
-from pydantic import BaseModel
 import os
 import secrets
 
@@ -13,8 +12,6 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/verify") # Utilise /auth/verify comme URL indicative
 
-class TokenData(BaseModel):
-    username: Optional[str] = None
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
@@ -25,6 +22,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
+
 
 async def get_current_user(token: str = Depends(oauth2_scheme)):
     credentials_exception = HTTPException(
@@ -37,12 +35,11 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
         username: str | None = payload.get("sub")
         if username is None:
             raise credentials_exception
-        token_data = TokenData(username=username)
     except JWTError:
         raise credentials_exception
     # Pour l'instant, nous retournons juste le username.
     # Plus tard, on pourrait vouloir récupérer l'objet User complet.
-    return token_data.username
+    return username
 
 
 # Ajouter une fonction pour décoder/valider le token si nécessaire pour la protection des endpoints

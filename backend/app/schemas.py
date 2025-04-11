@@ -1,94 +1,111 @@
+import re
 from pydantic import BaseModel, Field
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional
 from datetime import datetime
 
-class UserCreate(BaseModel):
-    username: str = Field(..., min_length=3, max_length=50)
-    publicKey: str  # Base64/Hex encoded
-    encryptedPrivateKey: str  # Base64/Hex encoded
-    kdfSalt: str  # Base64/Hex encoded
-    kdfParams: dict  # Ou un modèle plus spécifique
 
-class Token(BaseModel):
+def to_camel(string: str) -> str:
+    return re.sub(r'_([a-z])', lambda m: m.group(1).upper(), string)
+
+
+class BaseWithConfig(BaseModel):
+    model_config = {
+        "from_attributes": True,
+        "alias_generator": to_camel,
+        "populate_by_name": True,
+    }
+
+
+class KdfParams(BaseWithConfig):
+    algorithm: str
+    iterations: int
+    memory: int
+    parallelism: int
+
+
+class UserCreate(BaseWithConfig):
+    username: str = Field(..., min_length=3, max_length=50)
+    publicKey: str  # Base64
+    encryptedPrivateKey: str  # Base64
+    kdfSalt: str  # Base64
+    kdfParams: KdfParams
+
+
+class Token(BaseWithConfig):
     accessToken: str
     tokenType: str
 
-class ChallengeRequest(BaseModel):
+
+class ChallengeRequest(BaseWithConfig):
     username: str
 
-class ChallengeResponse(BaseModel):
+
+class ChallengeResponse(BaseWithConfig):
     challenge: str  # Base64/Hex encoded
     publicKey: str
     encryptedPrivateKey: str
     kdfSalt: str
-    kdfParams: Any
+    kdfParams: KdfParams
 
-class VerifyRequest(BaseModel):
+
+class VerifyRequest(BaseWithConfig):
     username: str
     challenge: str  # Base64/Hex encoded
     signature: str  # Base64/Hex encoded
 
-class ChangePasswordRequest(BaseModel):
+
+class ChangePasswordRequest(BaseWithConfig):
     newEncryptedPrivateKey: str  # Base64/Hex encoded
 
-class UserPublicKeyResponse(BaseModel):
+
+class UserPublicKeyResponse(BaseWithConfig):
     username: str
     publicKey: str  # Base64/Hex encoded
 
-class MessageBase(BaseModel):
+
+class MessageBase(BaseWithConfig):
     nonce: str  # Base64/Hex encoded
     ciphertext: str  # Base64/Hex encoded
     authTag: str  # Base64/Hex encoded
     associatedData: Optional[Dict] = None
 
+
 class MessageCreate(MessageBase):
     conversationId: int
+
 
 class MessageResponse(MessageBase):
     messageId: int
     senderId: str  # Username
     timestamp: datetime
 
-class ConversationCreateRequest(BaseModel):
+
+class ConversationCreateRequest(BaseWithConfig):
     participants: List[str]  # Usernames
     encryptedKeys: Dict[str, str]  # username: encryptedKey (Base64/Hex)
 
-class ConversationResponse(BaseModel):
+
+class ConversationResponse(BaseWithConfig):
     conversationId: int
     participants: List[str]
     createdAt: datetime  # camelCase pour API
 
-class ConversationListInfo(BaseModel):
+
+class ConversationListInfo(BaseWithConfig):
     conversationId: int
     participants: List[str]
     lastMessageTimestamp: Optional[datetime] = None
 
-class ConversationListResponse(BaseModel):
+
+class ConversationListResponse(BaseWithConfig):
     conversations: List[ConversationListInfo]
 
-class ParticipantAddRequest(BaseModel):
+
+class ParticipantAddRequest(BaseWithConfig):
     userId: int  # ID utilisateur
     encryptedSessionKey: str  # Base64 (clé chiffrée)
 
-    class Config:
-        schema_extra = {
-            "example": {
-                "userId": 42,
-                "encryptedSessionKey": "QmFzZTY0RW5jb2RlZENsZQ=="
-            }
-        }
 
 class SessionKeyUpdateRequest(BaseModel):
     participants: List[str]  # Usernames restants
     newEncryptedKeys: Dict[str, str]  # username: newEncryptedKey
-
-    class Config:
-        schema_extra = {
-            "example": {
-                "participants": ["alice", "bob"],
-                "newEncryptedKeys": {
-                    "alice": "QWxpY2VLZXk=",
-                    "bob": "Qm9iS2V5"
-                }
-            }
-        }

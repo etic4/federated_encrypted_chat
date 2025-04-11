@@ -23,7 +23,7 @@ async def register_user(user_in: UserCreate, db: AsyncSession = Depends(get_db))
             status_code=status.HTTP_409_CONFLICT, detail="Username already registered"
         )
 
-    db_user = User(**user_in.dict())
+    db_user = User(**user_in.model_dump(by_alias=True))
     db.add(db_user)
     await db.commit()
     await db.refresh(db_user)
@@ -45,7 +45,9 @@ async def create_challenge(challenge_request: ChallengeRequest, db: AsyncSession
     public_key = user.public_key.decode("utf-8")
     encrypted_private_key = user.encrypted_private_key.decode("utf-8")
     kdf_salt = user.kdf_salt.decode("utf-8")
-    kdf_params = user.kdf_params
+    from app.schemas import KdfParams  # Ensure this import exists
+
+    kdf_params = KdfParams(**user.kdf_params)  # Convert dict to KdfParams object
 
     return ChallengeResponse(
         challenge=challenge_b64,

@@ -1,16 +1,11 @@
 import { ref } from 'vue'
 
-declare global {
-  interface GlobalThis {
-    $sodium: typeof import('libsodium-wrappers')
-  }
-}
 
-const getSodium = async () => {
-  if (!(globalThis as any).$sodium) {
+const getSodium = async (): Promise<typeof import('libsodium-wrappers-sumo')> => {
+  if (!window.$sodium) {
     throw new Error('Libsodium is not initialized')
   }
-  return (globalThis as any).$sodium
+  return window.$sodium
 }
 
 export function useCrypto() {

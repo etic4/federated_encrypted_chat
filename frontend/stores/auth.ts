@@ -2,14 +2,15 @@ import { defineStore } from 'pinia'
 import type { User } from '~/types/user'
 import type { KdfParams } from '~/types/kdfParams'
 
+
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     isAuthenticated: false,
     user: null as User | null,
     token: null as string | null,
-    privateKey: null as string | null,
-    publicKey: null as string | null,
-    kdfSalt: null as string | null,
+    privateKey: null as Uint8Array<ArrayBufferLike> | null,
+    publicKey: null as Uint8Array<ArrayBufferLike> | null,
+    kdfSalt: null as Uint8Array<ArrayBufferLike> | null,
     kdfParams: null as KdfParams | null
   }),
 
@@ -50,16 +51,16 @@ export const useAuthStore = defineStore('auth', {
       this.token = token
     },
 
-    setPrivateKey(privateKey: string) {
+    setPrivateKey(privateKey: Uint8Array<ArrayBufferLike>) {
       this.privateKey = privateKey
     },
 
-    setKdfInfo(salt: string, params: KdfParams) {
+    setKdfInfo(salt: Uint8Array<ArrayBufferLike>, params: KdfParams) {
       this.kdfSalt = salt
       this.kdfParams = params
     },
 
-    setPublicKey(publicKey: string) {
+    setPublicKey(publicKey: Uint8Array<ArrayBufferLike>) {
       this.publicKey = publicKey
     }
   },
@@ -74,13 +75,13 @@ export const useAuthStore = defineStore('auth', {
     getAuthToken(): string | null {
       return this.token
     },
-    getPrivateKey(): string | null {
+    getPrivateKey(): Uint8Array<ArrayBufferLike> | null {
       return this.privateKey
     },
-    getPublicKey(): string | null {
+    getPublicKey(): Uint8Array<ArrayBufferLike> | null {
       return this.publicKey
     },
-    getKdfSalt(): string | null {
+    getKdfSalt(): Uint8Array<ArrayBufferLike> | null {
       return this.kdfSalt
     },
     getKdfParams(): KdfParams | null {

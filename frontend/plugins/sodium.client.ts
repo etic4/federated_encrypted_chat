@@ -1,3 +1,4 @@
+import { defineNuxtPlugin } from '#app'
 import sodium from 'libsodium-wrappers-sumo'
 
 declare global {
