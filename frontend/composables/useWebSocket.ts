@@ -1,8 +1,11 @@
 import { ref } from 'vue';
 import type { Ref } from 'vue';
+import { useRuntimeConfig } from '#app'; // Importez useRuntimeConfig
+import { useCrypto } from '@/composables/useCrypto';
 import { useAuthStore } from '@/stores/auth';
 import { useMessageStore } from '@/stores/messages';
 import { useConversationsStore } from '@/stores/conversations';
+import type { ConversationResponse } from '~/types/models';
 
 interface WebSocketMessage {
   type: string;
@@ -25,6 +28,7 @@ export function useWebSocket() {
   const ws: Ref<WebSocket | null> = ref(null);
   const isConnected: Ref<boolean> = ref(false);
 
+  const runtimeConfig = useRuntimeConfig();
   const authStore = useAuthStore();
   const messageStore = useMessageStore();
   const conversationStore = useConversationsStore();
@@ -36,7 +40,7 @@ export function useWebSocket() {
       return;
     }
 
-    const wsUrl = `wss://your-backend-domain/ws?token=${encodeURIComponent(token)}`;
+    const wsUrl = `${(runtimeConfig.apiBase as string).replace(/^http/, 'ws')}/ws?token=${encodeURIComponent(token)}`;
 
     if (ws.value && (ws.value.readyState === WebSocket.OPEN || ws.value.readyState === WebSocket.CONNECTING)) {
       console.log('WebSocket already connected or connecting');
@@ -71,26 +75,24 @@ export function useWebSocket() {
             break;
 
           case 'participantAdded': {
-            // Bloc 11 : gestion explicite
-            const { conversationId, userId, publicKey } = data;
-            if (typeof conversationId !== 'number' || !userId) {
+            const { conversationId, userId: username, publicKey } = data;
+            if (typeof conversationId !== 'number' || !username) {
               console.error('participantAdded: données invalides', data);
               break;
             }
             // Mise à jour du store
             conversationStore.updateConversationParticipants(conversationId, [
               ...(
-                conversationStore.conversations.find((c: any) => c.id === conversationId)?.participants || []
-              ).filter((p: string) => p !== userId),
-              userId
+                conversationStore.conversations.find((c: ConversationResponse) => c.conversationId === conversationId)?.participants || []
+              ).filter((p: string) => p !== username),
+              username
             ]);
             // Notification UI
-            alert(`Utilisateur ${userId} a rejoint la conversation`);
+            alert(`Utilisateur ${username} a rejoint la conversation`);
             break;
           }
 
           case 'keyRotation': {
-            // Bloc 11 : gestion explicite
             const { conversationId, removedUserId, remainingParticipants, newEncryptedSessionKey } = data;
             if (
               typeof conversationId !== 'number' ||
@@ -104,7 +106,6 @@ export function useWebSocket() {
             // et que la clé privée locale est dans authStore.privateKey (Uint8Array ou base64)
             try {
               const { cipher, nonce, senderPublicKey } = newEncryptedSessionKey;
-              const useCrypto = (await import('@/composables/useCrypto')).useCrypto;
               const crypto = useCrypto();
               // Conversion base64 -> Uint8Array si besoin
               const cipherBuf = typeof cipher === 'string' ? await crypto.fromBase64(cipher) : cipher;
@@ -152,7 +153,6 @@ export function useWebSocket() {
           }
 
           case 'removedFromConversation': {
-            // Bloc 11 : gestion explicite
             const { conversationId } = data;
             if (typeof conversationId !== 'number') {
               console.error('removedFromConversation: données invalides', data);

@@ -1,21 +1,9 @@
 import { useAuthStore } from '~/stores/auth';
-import { useConversationsStore, type ConversationListInfo } from '~/stores/conversations';
-
-declare global {
-  interface GlobalThis {
-    $sodium: typeof import('libsodium-wrappers-sumo');
-  }
-}
-
-export {};
-
-interface ConversationResponse {
-  id: number;
-  title: string;
-  participants: string[];
-}
+import { useConversationsStore } from '~/stores/conversations';
 import { useCrypto } from './useCrypto';
 import { useApiFetch } from './useApiFetch';
+import { type ConversationResponse, type UserPublicKeyResponse } from '~/types/models';
+
 
 /**
  * Composable pour gérer les conversations :
@@ -32,13 +20,13 @@ export function useConversations() {
    */
   async function fetchConversations() {
     try {
-      const convos = await useApiFetch<ConversationListInfo[]>('/conversations', {
+      const conversations = await useApiFetch<ConversationResponse[]>('/conversations', {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${authStore.getAuthToken}`,
         },
       });
-      conversationsStore.setConversations(convos);
+      conversationsStore.setConversations(conversations);
     } catch (error: any) {
       console.error('Erreur lors de la récupération des conversations:', error);
       if (error?.status === 401) {
@@ -59,19 +47,12 @@ export function useConversations() {
       // Générer une clé de session symétrique
       const sessionKey = await crypto.generateSessionKey();
 
-      // Accès à sodium natif
-      const sodium = await (async () => {
-        const g = globalThis as any;
-        if (!g.$sodium) throw new Error('Libsodium non initialisé');
-        return g.$sodium;
-      })();
-
       const encryptedKeys: Record<string, string> = {};
 
       // Pour chaque participant (y compris soi-même)
       for (const participant of participantUsernames) {
         // Récupérer la clé publique du participant
-        const { publicKey: publicKeyBase64 } = await useApiFetch<{ publicKey: string }>(
+        const pubKeyResponse = await useApiFetch<UserPublicKeyResponse>(
           `/users/${participant}/public_key`,
           {
             method: 'GET',
@@ -81,10 +62,10 @@ export function useConversations() {
           }
         );
 
-        const publicKey = await crypto.fromBase64(publicKeyBase64);
+        const publicKey = await crypto.fromBase64(pubKeyResponse.publicKey);
 
         // Chiffrer la clé de session avec crypto_box_seal
-        const encryptedSessionKey = sodium.crypto_box_seal(sessionKey, publicKey);
+        const encryptedSessionKey = await crypto.seal(sessionKey, publicKey);
 
         // Encoder en base64
         const encryptedSessionKeyBase64 = await crypto.toBase64(encryptedSessionKey);
@@ -105,8 +86,8 @@ export function useConversations() {
       });
 
       // Stocker la clé de session déchiffrée pour soi
-      if (response && response.id) {
-        conversationsStore.setSessionKey(response.id, sessionKey);
+      if (response && response.conversationId) {
+        conversationsStore.setSessionKey(response.conversationId, sessionKey);
       }
 
       // Ajouter la conversation dans le store
@@ -118,7 +99,7 @@ export function useConversations() {
   }
 
   /**
-   * Ajoute un participant à une conversation existante (Bloc 11)
+   * Ajoute un participant à une conversation existante
    * @param conversationId ID de la conversation
    * @param usernameToAdd Username du participant à ajouter
    */
@@ -140,12 +121,7 @@ export function useConversations() {
       );
       // 3. Chiffrer la sessionKey avec la clé publique du nouvel utilisateur (crypto_box_seal)
       const publicKey = await crypto.fromBase64(publicKeyBase64);
-      const sodium = await (async () => {
-        const g = globalThis as any;
-        if (!g.$sodium) throw new Error('Libsodium non initialisé');
-        return g.$sodium;
-      })();
-      const encryptedSessionKey = sodium.crypto_box_seal(sessionKey, publicKey);
+      const encryptedSessionKey = await crypto.seal(sessionKey, publicKey);
 
       // 4. Encoder la clé chiffrée
       const encryptedSessionKeyBase64 = await crypto.toBase64(encryptedSessionKey);
@@ -188,11 +164,6 @@ export function useConversations() {
       // 3. Générer une nouvelle clé de session
       const sessionKey = await crypto.generateSessionKey();
       // 4. Pour chaque participant restant, récupérer la clé publique et chiffrer la sessionKey
-      const sodium = await (async () => {
-        const g = globalThis as any;
-        if (!g.$sodium) throw new Error('Libsodium non initialisé');
-        return g.$sodium;
-      })();
       const newEncryptedKeys: Record<string, string> = {};
       for (const participant of remainingUsernames) {
         // Récupérer la clé publique via API
@@ -207,7 +178,7 @@ export function useConversations() {
         );
         const publicKey = await crypto.fromBase64(publicKeyBase64);
         // Chiffrer la nouvelle sessionKey
-        const encryptedSessionKey = sodium.crypto_box_seal(sessionKey, publicKey);
+        const encryptedSessionKey = await crypto.seal(sessionKey, publicKey);
         // Encoder en base64
         const encryptedSessionKeyBase64 = await crypto.toBase64(encryptedSessionKey);
         newEncryptedKeys[participant] = encryptedSessionKeyBase64;

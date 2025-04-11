@@ -1,6 +1,6 @@
 import { ref } from 'vue'
 
-
+// Charge la bibliothèque libsodium depuis l'objet global `window`
 const getSodium = async (): Promise<typeof import('libsodium-wrappers-sumo')> => {
   if (!window.$sodium) {
     throw new Error('Libsodium is not initialized')
@@ -9,19 +9,14 @@ const getSodium = async (): Promise<typeof import('libsodium-wrappers-sumo')> =>
 }
 
 export function useCrypto() {
-  const sodiumReady = ref(false)
 
-  const init = async () => {
-    const sodium = await getSodium()
-    sodiumReady.value = true
-    return sodium
-  }
-
+  // Génère une paire de clés pour l'identité (clé publique et clé privée)
   const generateIdentityKeyPair = async () => {
     const sodium = await getSodium()
     return sodium.crypto_box_keypair()
   }
 
+  // Dérive une clé à partir d'un mot de passe et d'un sel en utilisant Argon2id
   const deriveKeyFromPassword = async (password: string, salt: Uint8Array) => {
     const sodium = await getSodium()
 
@@ -47,12 +42,14 @@ export function useCrypto() {
     }
   }
 
+  // Génère un sel aléatoire pour la dérivation de clé
   const generateKdfSalt = async (length?: number) => {
     const sodium = await getSodium()
     const saltLength = length ?? sodium.crypto_pwhash_SALTBYTES
     return sodium.randombytes_buf(saltLength)
   }
 
+  // Chiffre une clé privée avec une clé symétrique
   const encryptPrivateKey = async (privateKey: Uint8Array, key: Uint8Array) => {
     const sodium = await getSodium()
     const nonce = sodium.randombytes_buf(sodium.crypto_secretbox_NONCEBYTES)
@@ -60,16 +57,19 @@ export function useCrypto() {
     return { cipher, nonce }
   }
 
+  // Déchiffre une clé privée avec une clé symétrique
   const decryptPrivateKey = async (cipher: Uint8Array, nonce: Uint8Array, key: Uint8Array) => {
     const sodium = await getSodium()
     return sodium.crypto_secretbox_open_easy(cipher, nonce, key)
   }
 
+  // Génère une clé de session aléatoire
   const generateSessionKey = async () => {
     const sodium = await getSodium()
     return sodium.randombytes_buf(sodium.crypto_secretbox_KEYBYTES)
   }
 
+  // Chiffre un message de manière asymétrique
   const encryptAsymmetric = async (message: Uint8Array, publicKey: Uint8Array, privateKey: Uint8Array) => {
     const sodium = await getSodium()
     const nonce = sodium.randombytes_buf(sodium.crypto_box_NONCEBYTES)
@@ -77,11 +77,13 @@ export function useCrypto() {
     return { cipher, nonce }
   }
 
+  // Déchiffre un message de manière asymétrique
   const decryptAsymmetric = async (cipher: Uint8Array, nonce: Uint8Array, publicKey: Uint8Array, privateKey: Uint8Array) => {
     const sodium = await getSodium()
     return sodium.crypto_box_open_easy(cipher, nonce, publicKey, privateKey)
   }
 
+  // Chiffre un message avec une clé symétrique
   const encryptMessage = async (message: Uint8Array, key: Uint8Array) => {
     const sodium = await getSodium()
     const nonce = sodium.randombytes_buf(sodium.crypto_secretbox_NONCEBYTES)
@@ -89,21 +91,25 @@ export function useCrypto() {
     return { cipher, nonce }
   }
 
+  // Déchiffre un message avec une clé symétrique
   const decryptMessage = async (cipher: Uint8Array, nonce: Uint8Array, key: Uint8Array) => {
     const sodium = await getSodium()
     return sodium.crypto_secretbox_open_easy(cipher, nonce, key)
   }
 
+  // Signe un message avec une clé privée
   const sign = async (message: Uint8Array, privateKey: Uint8Array) => {
     const sodium = await getSodium()
     return sodium.crypto_sign_detached(message, privateKey)
   }
 
+  // Vérifie une signature avec une clé publique
   const verifySignature = async (message: Uint8Array, signature: Uint8Array, publicKey: Uint8Array) => {
     const sodium = await getSodium()
     return sodium.crypto_sign_verify_detached(signature, message, publicKey)
   }
 
+  // Calcule un numéro de sécurité basé sur des clés publiques et des identifiants
   const calculateSafetyNumber = async (
     myPublicKey: Uint8Array,
     theirPublicKey: Uint8Array,
@@ -164,52 +170,71 @@ export function useCrypto() {
     return groups.join(' ')
   }
 
+  // Chiffre un message avec crypto_box_seal (chiffrement asymétrique sans nonce)
+  const seal = async (message: Uint8Array, publicKey: Uint8Array) => {
+    const sodium = await getSodium()
+    return sodium.crypto_box_seal(message, publicKey)
+  }
+
+  // Déchiffre un message avec crypto_box_seal_open (optionnel, pour usage futur)
+  const sealOpen = async (cipher: Uint8Array, publicKey: Uint8Array, privateKey: Uint8Array) => {
+    const sodium = await getSodium()
+    return sodium.crypto_box_seal_open(cipher, publicKey, privateKey)
+  }
+
+  // Convertit des données en base64
   const toBase64 = async (data: Uint8Array) => {
     const sodium = await getSodium()
     return sodium.to_base64(data)
   }
 
+  // Convertit une chaîne base64 en Uint8Array
   const fromBase64 = async (data: string) => {
     const sodium = await getSodium()
     return sodium.from_base64(data)
   }
 
+  // Décode une chaîne base64 avec une variante optionnelle
   const decodeBase64 = async (str: string, variant?: number): Promise<Uint8Array> => {
     const sodium = await getSodium()
     return sodium.from_base64(str, variant)
   }
 
+  // Déchiffre un message avec une clé symétrique et un nonce
   const secretboxOpenEasy = async (cipher: Uint8Array, nonce: Uint8Array, key: Uint8Array): Promise<Uint8Array | null> => {
     const sodium = await getSodium()
     return sodium.crypto_secretbox_open_easy(cipher, nonce, key)
   }
 
+  // Retourne la taille du nonce pour le secretbox
   const getSecretboxNonceBytes = async (): Promise<number> => {
     const sodium = await getSodium()
     return sodium.crypto_secretbox_NONCEBYTES
   }
 
+  // Convertit des données en hexadécimal
   const toHex = async (data: Uint8Array) => {
     const sodium = await getSodium()
     return sodium.to_hex(data)
   }
 
+  // Convertit une chaîne hexadécimale en Uint8Array
   const fromHex = async (data: string) => {
     const sodium = await getSodium()
     return sodium.from_hex(data)
   }
 
+  // Convertit une chaîne en Uint8Array
   const stringToUint8Array = (str: string) => {
     return new TextEncoder().encode(str)
   }
 
+  // Convertit un Uint8Array en chaîne
   const uint8ArrayToString = (arr: Uint8Array) => {
     return new TextDecoder().decode(arr)
   }
 
   return {
-    sodiumReady,
-    init,
     generateIdentityKeyPair,
     deriveKeyFromPassword,
     generateKdfSalt,
@@ -231,7 +256,9 @@ export function useCrypto() {
     toHex,
     fromHex,
     stringToUint8Array,
-    uint8ArrayToString
+    uint8ArrayToString,
+    seal,
+    sealOpen
   }
 }
 

@@ -8,6 +8,15 @@ export interface User {
   updatedAt: string;
 }
 
+
+export interface UserCreate {
+  username: string;
+  publicKey: string; // Base64
+  encryptedPrivateKey: string; // Base64
+  kdfSalt: string; // Base64
+  kdfParams: KdfParams;
+}
+
 export interface AuthState {
   isAuthenticated: boolean
   user: User | null
@@ -42,13 +51,6 @@ export interface KdfParams {
   parallelism: number;
 }
 
-export interface UserCreate {
-  username: string;
-  publicKey: string; // Base64
-  encryptedPrivateKey: string; // Base64
-  kdfSalt: string; // Base64
-  kdfParams: KdfParams;
-}
 
 export interface Token {
   accessToken: string;
@@ -74,6 +76,11 @@ export interface UserPublicKeyResponse {
   publicKey: string; // Base64
 }
 
+export interface MessageCreateResponse {
+  messageId: number;
+  timestamp: string; // ISO 8601 format
+}
+
 export interface MessageBase {
   nonce: string; // Base64
   ciphertext: string; // Base64
@@ -91,9 +98,17 @@ export interface MessageResponse extends MessageBase {
   timestamp: string; // ISO 8601 format
 }
 
+export interface DecryptedMessage {
+  messageId: number;
+  senderId: string;
+  timestamp: string;
+  plaintext: string;
+  error?: string;
+}
+
 export interface ConversationCreateRequest {
   participants: string[]; // Usernames
-  encryptedKeys: Record<string, string>; // username: encryptedKey (Base64/Hex)
+  encryptedKeys: Record<string, string>; // username: encryptedKey (Base64)
 }
 
 export interface ConversationResponse {
@@ -102,14 +117,9 @@ export interface ConversationResponse {
   createdAt: string; // ISO 8601 format
 }
 
-export interface ConversationListInfo {
-  conversationId: number;
-  participants: string[];
-  lastMessageTimestamp?: string; // ISO 8601 format
-}
 
 export interface ConversationListResponse {
-  conversations: ConversationListInfo[];
+  conversations: ConversationResponse[];
 }
 
 export interface ParticipantAddRequest {

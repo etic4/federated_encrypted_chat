@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { defineProps, defineEmits } from 'vue'
+import { ref, defineProps, defineEmits } from 'vue'
 import Button from '@/components/ui/button/Button.vue'
 import Input from '@/components/ui/input/Input.vue'
 import { useConversationsStore } from '../stores/conversations'

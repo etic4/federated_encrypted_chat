@@ -4,19 +4,20 @@ from sqlalchemy import select
 from app.database import get_db
 from app.security import get_current_user
 from app.models import User, Participant, Message
-from app.schemas import MessageCreate
+from app.schemas import MessageCreate, MessageCreateResponse
 import base64
 from sqlalchemy.orm import selectinload
 from app.api.websocket import manager
 
 router = APIRouter()
 
+
 @router.post("/", status_code=201)
 async def create_message(
     message_in: MessageCreate,
     current_username: str = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
-):
+) -> MessageCreateResponse:
     # Récupérer l'utilisateur courant
     result = await db.execute(select(User).where(User.username == current_username))
     user = result.scalar_one_or_none()
@@ -78,11 +79,7 @@ async def create_message(
     # Diffuser via WebSocket
     await manager.send_to_participants(payload, participant_usernames)
 
-    # Préparer la diffusion WebSocket (appel effectif dans une tâche ultérieure)
-    # Exemple :
-    # await websocket_manager.send_to_participants(payload, participant_usernames)
-
-    return {
-        "messageId": new_message.id,
-        "timestamp": new_message.timestamp.isoformat()
-    }
+    return MessageCreateResponse(
+        messageId=new_message.id,
+        timestamp=new_message.timestamp
+    )

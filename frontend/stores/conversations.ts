@@ -2,20 +2,12 @@ import { defineStore } from 'pinia';
 import { getSodium } from '../composables/useCrypto';
 import { ref, computed } from 'vue';
 import type { Ref } from 'vue';
+import type { ConversationResponse } from '~/types/models';
 
-/**
- * Interface minimale pour une conversation.
- * À remplacer par une importation correcte si elle existe ailleurs.
- */
-export interface ConversationListInfo {
-  id: number;
-  title: string;
-  participants: string[];
-}
 
 export const useConversationsStore = defineStore('conversations', () => {
   // État
-  const conversations: Ref<ConversationListInfo[]> = ref([]);
+  const conversations: Ref<ConversationResponse[]> = ref([]);
   const sessionKeys: Ref<Record<number, Uint8Array>> = ref({});
   
   // Etat vérification : conversationId -> Set de usernames vérifiés
@@ -29,11 +21,11 @@ export const useConversationsStore = defineStore('conversations', () => {
   const currentConversationId: Ref<number | null> = ref(null);
 
   // Actions
-  function setConversations(convos: ConversationListInfo[]) {
+  function setConversations(convos: ConversationResponse[]) {
     conversations.value = convos;
   }
 
-  function addConversation(convo: ConversationListInfo) {
+  function addConversation(convo: ConversationResponse) {
     conversations.value.push(convo);
   }
 
@@ -50,7 +42,7 @@ export const useConversationsStore = defineStore('conversations', () => {
   }
 
   function removeConversation(conversationId: number) {
-    conversations.value = conversations.value.filter(c => c.id !== conversationId);
+    conversations.value = conversations.value.filter(c => c.conversationId !== conversationId);
     delete sessionKeys.value[conversationId];
     if (currentConversationId.value === conversationId) {
       currentConversationId.value = null;
@@ -65,7 +57,7 @@ export const useConversationsStore = defineStore('conversations', () => {
      * Met à jour la liste des participants et stocke la clé de session chiffrée si fournie.
      */
     function handleParticipantAdded(data: { conversationId: number; participant: string; encryptedSessionKey?: Uint8Array }) {
-      const convo = conversations.value.find(c => c.id === data.conversationId);
+      const convo = conversations.value.find(c => c.conversationId === data.conversationId);
       if (convo) {
         if (!convo.participants.includes(data.participant)) {
           convo.participants.push(data.participant);
@@ -94,9 +86,9 @@ export const useConversationsStore = defineStore('conversations', () => {
       conversations.value.forEach(convo => {
         if (convo.participants.includes(data.contactId)) {
           // Invalider la vérification pour ce contact dans cette conversation
-          unverifyParticipant(convo.id, data.contactId)
+          unverifyParticipant(convo.conversationId, data.contactId)
           // Marquer comme nécessitant une révérification
-          markPendingReverification(convo.id, data.contactId)
+          markPendingReverification(convo.conversationId, data.contactId)
         }
       })
 
@@ -107,7 +99,7 @@ export const useConversationsStore = defineStore('conversations', () => {
       })()
     }
   function updateConversationParticipants(conversationId: number, participants: string[]) {
-    const convo = conversations.value.find(c => c.id === conversationId);
+    const convo = conversations.value.find(c => c.conversationId === conversationId);
     if (convo) {
       convo.participants = participants;
     }

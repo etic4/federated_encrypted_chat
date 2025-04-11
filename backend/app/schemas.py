@@ -41,7 +41,7 @@ class ChallengeRequest(BaseWithConfig):
 
 
 class ChallengeResponse(BaseWithConfig):
-    challenge: str  # Base64/Hex encoded
+    challenge: str  # Base64
     publicKey: str
     encryptedPrivateKey: str
     kdfSalt: str
@@ -50,28 +50,33 @@ class ChallengeResponse(BaseWithConfig):
 
 class VerifyRequest(BaseWithConfig):
     username: str
-    challenge: str  # Base64/Hex encoded
-    signature: str  # Base64/Hex encoded
+    challenge: str  # Base64
+    signature: str  # Base64
 
 
 class ChangePasswordRequest(BaseWithConfig):
-    newEncryptedPrivateKey: str  # Base64/Hex encoded
+    newEncryptedPrivateKey: str  # Base64
 
 
 class UserPublicKeyResponse(BaseWithConfig):
     username: str
-    publicKey: str  # Base64/Hex encoded
+    publicKey: str  # Base64
 
 
 class MessageBase(BaseWithConfig):
-    nonce: str  # Base64/Hex encoded
-    ciphertext: str  # Base64/Hex encoded
-    authTag: str  # Base64/Hex encoded
+    nonce: str  # Base64
+    ciphertext: str  # Base64
+    authTag: str  # Base64
     associatedData: Optional[Dict] = None
 
 
 class MessageCreate(MessageBase):
     conversationId: int
+
+
+class MessageCreateResponse(BaseWithConfig):
+    messageId: int
+    timestamp: datetime
 
 
 class MessageResponse(MessageBase):
@@ -82,23 +87,17 @@ class MessageResponse(MessageBase):
 
 class ConversationCreateRequest(BaseWithConfig):
     participants: List[str]  # Usernames
-    encryptedKeys: Dict[str, str]  # username: encryptedKey (Base64/Hex)
+    encryptedKeys: Dict[str, str]  # username: encryptedKey (Base64)
 
 
 class ConversationResponse(BaseWithConfig):
     conversationId: int
     participants: List[str]
-    createdAt: datetime  # camelCase pour API
-
-
-class ConversationListInfo(BaseWithConfig):
-    conversationId: int
-    participants: List[str]
-    lastMessageTimestamp: Optional[datetime] = None
+    createdAt: datetime
 
 
 class ConversationListResponse(BaseWithConfig):
-    conversations: List[ConversationListInfo]
+    conversations: List[ConversationResponse]
 
 
 class ParticipantAddRequest(BaseWithConfig):

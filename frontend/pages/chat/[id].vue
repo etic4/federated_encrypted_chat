@@ -33,7 +33,7 @@ async function sendMessage(conversationId: number, content: string) {
 
 // Trouver la conversation active
 const conversation = computed(() =>
-  conversationsStore.conversations.find((c) => c.id === conversationId)
+  conversationsStore.conversations.find((c) => c.conversationId === conversationId)
 )
 
 // Transformer les participants en objets { username }
@@ -112,7 +112,7 @@ watch(
     <!-- Barre d'en-tête -->
     <div class="flex items-center justify-between px-4 py-2 border-b bg-white dark:bg-gray-900">
       <div class="font-semibold text-lg truncate">
-        {{ conversation?.title || 'Conversation' }}
+        {{ conversation?.conversationId || 'Conversation' }}
       </div>
       <button
         class="ml-2 px-3 py-1 rounded bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-sm"
@@ -145,6 +145,7 @@ watch(
         <ParticipantManager
           :participants="participants"
           :current-user="currentUser"
+          :conversation-id="conversationId"
           @add-participant="handleAddParticipant"
           @remove-participant="handleRemoveParticipant"
         />

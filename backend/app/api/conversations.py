@@ -9,7 +9,6 @@ from app.schemas import (
     ConversationCreateRequest,
     ConversationResponse,
     ConversationListResponse,
-    ConversationListInfo,
     MessageResponse,
     ParticipantAddRequest,
     SessionKeyUpdateRequest
@@ -25,12 +24,13 @@ from app.models import Message
 
 router = APIRouter()
 
-@router.post("/", response_model=ConversationResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_conversation(
     conversation_data: ConversationCreateRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
-):
+) -> ConversationResponse:
     # Vérifier que l'utilisateur courant est inclus dans les participants
     if current_user.username not in conversation_data.participants:
         raise HTTPException(
@@ -70,18 +70,18 @@ async def create_conversation(
     await db.commit()
     await db.refresh(new_conversation)
 
-    # Formater la réponse
-    return {
-        "conversationId": new_conversation.id,
-        "participants": conversation_data.participants,
-        "createdAt": datetime.now()
-    }
+    return ConversationResponse(
+        conversationId=new_conversation.id,
+        participants=conversation_data.participants,
+        createdAt=datetime.now()
+    )
 
-@router.get("/", response_model=ConversationListResponse)
+
+@router.get("/")
 async def list_conversations(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
-):
+) -> ConversationListResponse:
     # Récupérer les conversations de l'utilisateur
     result = await db.execute(
         select(Conversation)
@@ -92,7 +92,7 @@ async def list_conversations(
     conversations = result.scalars().all()
 
     # Formater la réponse
-    conversation_infos = []
+    conversation_list = []
     for conv in conversations:
         # Récupérer les participants
         participants_result = await db.execute(
@@ -102,20 +102,23 @@ async def list_conversations(
         )
         participants = [p[0] for p in participants_result.all()]
 
-        conversation_infos.append(ConversationListInfo(
+        conversation_list.append(ConversationResponse(
             conversationId=conv.id,
             participants=participants,
-            lastMessageTimestamp=None  # À implémenter plus tard
+            createdAt=datetime.now()
         ))
 
-@router.get("/{conv_id}/messages", response_model=List[MessageResponse])
+    return ConversationListResponse(conversations=conversation_list)
+
+
+@router.get("/{conv_id}/messages")
 async def get_conversation_messages(
     conv_id: int,
     limit: int = 50,
     before: Optional[int] = None,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
-):
+) -> List[MessageResponse]:
     # Vérifier que l'utilisateur est participant
     participant_stmt = select(Participant).where(
         Participant.conversation_id == conv_id,
@@ -135,26 +138,29 @@ async def get_conversation_messages(
     result = await db.execute(msg_stmt)
     messages = result.scalars().all()
 
-    response = []
+    messages_list = []
     for msg in messages:
-        response.append(
+        messages_list.append(
             MessageResponse(
                 messageId=msg.id,
-                senderId=msg.sender.username if msg.sender else "",
+                senderId=msg.sender.username,
                 timestamp=msg.timestamp,
-                nonce=msg.nonce if isinstance(msg.nonce, str) else base64.b64encode(msg.nonce).decode(),
-                ciphertext=msg.ciphertext if isinstance(msg.ciphertext, str) else base64.b64encode(msg.ciphertext).decode(),
-                authTag=msg.auth_tag if isinstance(msg.auth_tag, str) else base64.b64encode(msg.auth_tag).decode(),
+                nonce=base64.b64encode(msg.nonce).decode(),
+                ciphertext=base64.b64encode(msg.ciphertext).decode(),
+                authTag=base64.b64encode(msg.auth_tag).decode(),
                 associatedData=msg.associated_data
             )
         )
+    return messages_list
+
+
 @router.post("/{conv_id}/participants")
 async def add_participant(
     conv_id: int,
     participant_data: ParticipantAddRequest,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
-):
+) -> None:
     # Vérifier que l'utilisateur courant est participant
     participant_stmt = select(Participant).where(
         Participant.conversation_id == conv_id,
@@ -206,12 +212,13 @@ async def add_participant(
         "type": "participantAdded",
         "data": {
             "conversationId": conv_id,
-            "userId": user_to_add.username,
+            "username": user_to_add.username,
             "addedBy": current_user.username,
             "publicKey": encoded_pk
         }
     }
     await manager.send_to_participants(payload, participant_usernames)
+
 
 @router.put("/{conv_id}/session_key")
 async def update_session_key(
@@ -281,4 +288,3 @@ async def update_session_key(
         await manager.send_personal_message(json.dumps(payload), removed_username)
 
     return {"message": "Session key updated and participants managed"}
-    return {"message": "Participant added"}

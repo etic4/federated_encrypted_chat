@@ -9,38 +9,46 @@ router = APIRouter()
 
 WS_1008_POLICY_VIOLATION = 1008
 
+
 class ConnectionManager:
     _instance = None
-    active_connections: dict[str, WebSocket] = {}
-    lock: asyncio.Lock = asyncio.Lock()
 
     def __new__(cls):
         if cls._instance is None:
-            cls._instance = super(ConnectionManager, cls).__new__(cls)
+            cls._instance = super().__new__(cls)
+            cls._instance._initialized = False
         return cls._instance
 
-    async def connect(self, username: str, websocket: WebSocket):
+    def __init__(self):
+        if getattr(self, "_initialized", False):
+            return
+        self.active_connections = {}  # type: dict[str, WebSocket]
+        self.lock = asyncio.Lock()
+        self._initialized = True
+
+    async def connect(self, username: str, websocket: WebSocket) -> None:
         await websocket.accept()
         async with self.lock:
             self.active_connections[username] = websocket
 
-    async def disconnect(self, username: str):
+    async def disconnect(self, username: str) -> None:
         async with self.lock:
             if username in self.active_connections:
                 del self.active_connections[username]
 
-    async def send_personal_message(self, message: str, username: str):
+    async def send_personal_message(self, message: str, username: str) -> None:
         async with self.lock:
             websocket = self.active_connections.get(username)
             if websocket and websocket.application_state == WebSocketState.CONNECTED:
                 await websocket.send_text(message)
 
-    async def broadcast(self, message: str):
+    async def broadcast(self, message: str) -> None:
         async with self.lock:
             for ws in self.active_connections.values():
                 if ws.application_state == WebSocketState.CONNECTED:
                     await ws.send_text(message)
-    async def send_to_participants(self, message: dict, participants: list[str]):
+
+    async def send_to_participants(self, message: dict, participants: list[str]) -> None:
         import json
         message_str = json.dumps(message)
         async with self.lock:
@@ -52,6 +60,7 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
+
 def validate_token(token: str) -> str | None:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
@@ -61,6 +70,7 @@ def validate_token(token: str) -> str | None:
         return username
     except JWTError:
         return None
+
 
 @router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):

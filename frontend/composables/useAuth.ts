@@ -1,5 +1,4 @@
 import { useCrypto } from "./useCrypto";
-import type { KdfParams } from "~/types/kdfParams";
 import { useAuthStore } from "~/stores/auth";
 import { useApiFetch } from "./useApiFetch";
 import type { AuthResponse, ChallengeResponse } from "~/types/models";
@@ -8,6 +7,7 @@ export const useAuth = () => {
 
   const authStore = useAuthStore();
   authStore.initializeFromStorage();
+  
   const registerUser = async (username: string, password: string) => {
     // 1. Appelez useCrypto().generateIdentityKeyPair() pour obtenir publicKey, privateKey.
     const { publicKey, privateKey } = await useCrypto().generateIdentityKeyPair();
@@ -27,10 +27,10 @@ export const useAuth = () => {
     const encryptedPrivateKey = new Uint8Array([...nonce, ...ciphertext]);
 
     // 5. Encodez publicKey, encryptedPrivateKey, kdfSalt en Base64.
-    const publicKeyEncoded = btoa(String.fromCharCode(...new Uint8Array(publicKey)));
-    const encryptedPrivateKeyEncoded = btoa(String.fromCharCode(...new Uint8Array(encryptedPrivateKey)));
-    const kdfSaltEncoded = btoa(String.fromCharCode(...new Uint8Array(kdfSalt)));
-
+    const crypto = useCrypto();
+    const publicKeyEncoded = await crypto.toBase64(publicKey);
+    const encryptedPrivateKeyEncoded = await crypto.toBase64(encryptedPrivateKey);
+    const kdfSaltEncoded = await crypto.toBase64(kdfSalt as Uint8Array);
   
     // 6. Appelez l'API POST /auth/register avec les données formatées (username, clés encodées, sel encodé, kdfParams).
     try {
@@ -81,10 +81,10 @@ export const useAuth = () => {
         kdfParams
       } = challengeResponse;
 
-      const challengeBytes = Uint8Array.from(atob(challenge), c => c.charCodeAt(0));
-      const encryptedPrivateKeyBytes = Uint8Array.from(atob(encryptedPrivateKey), c => c.charCodeAt(0));
-      const kdfSaltBytes = Uint8Array.from(atob(kdfSalt), c => c.charCodeAt(0));
-
+      const crypto = useCrypto();
+      const challengeBytes = await crypto.fromBase64(challenge);
+      const encryptedPrivateKeyBytes = await crypto.fromBase64(encryptedPrivateKey);
+      const kdfSaltBytes = await crypto.fromBase64(kdfSalt);
       // 3. Dérivez la clé keyK
       const { key: keyK } = await useCrypto().deriveKeyFromPassword(password, kdfSaltBytes);
 
@@ -94,8 +94,8 @@ export const useAuth = () => {
       const privateKey = await useCrypto().decryptPrivateKey(ciphertext, keyK, nonce);
 
       // 5. Signez le challenge
-      const signature = await useCrypto().sign(challengeBytes, privateKey);
-      const signatureEncoded = btoa(String.fromCharCode(...new Uint8Array(signature)));
+      const signature = await crypto.sign(challengeBytes, privateKey);
+      const signatureEncoded = await crypto.toBase64(signature);
 
       // 6. Vérifiez la signature avec l'API
       const verifyResponse = await useApiFetch<AuthResponse>("/auth/verify", {
