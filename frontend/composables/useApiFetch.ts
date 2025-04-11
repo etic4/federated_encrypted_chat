@@ -7,11 +7,9 @@ import { useRuntimeConfig } from '#app'
  * @returns Résultat de la requête $fetch
  */
 export function useApiFetch<T>(url: string, options?: any): Promise<T> {
-  const config = useRuntimeConfig()
-  console.log('[useApiFetch] useRuntimeConfig:', config)
-  console.log('[useApiFetch] apiBase:', config.public?.apiBase)
+  const runtimeConfig = useRuntimeConfig()
 
-  const { apiBase } = config.public || {}
+  const { apiBase } = runtimeConfig.public || {}
 
   const isAbsoluteUrl = /^https?:\/\//i.test(url)
   const fullUrl = isAbsoluteUrl ? url : apiBase + url

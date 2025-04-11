@@ -1,3 +1,10 @@
+/**
+ * Composable Nuxt pour la gestion des conversations chiffrées.
+ * Fournit la récupération, la création (avec chiffrement des clés de session),
+ * l’ajout et le retrait de participants, et la synchronisation avec le store.
+ * Utilise l’API, la cryptographie et l’authentification utilisateur.
+ */
+
 import { useAuthStore } from '~/stores/auth';
 import { useConversationsStore } from '~/stores/conversations';
 import { useCrypto } from './useCrypto';
