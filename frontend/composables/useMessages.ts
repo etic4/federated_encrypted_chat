@@ -1,5 +1,5 @@
 /**
- * Composable Vue 3 pour la gestion des messages chiffrés dans une application de chat.
+ * Composable pour la gestion des messages chiffrés dans une application de chat.
  * Fournit les fonctions d'envoi et de chargement de l'historique des messages pour une conversation donnée,
  * en s'appuyant sur les stores Pinia (auth, messages, conversations) et des utilitaires cryptographiques.
  * Les messages sont chiffrés côté client avant envoi et déchiffrés lors du chargement de l'historique.
