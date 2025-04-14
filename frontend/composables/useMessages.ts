@@ -10,6 +10,8 @@ import { useAuthStore } from '@/stores/auth'
 import { useMessageStore } from '@/stores/messages'
 import { useCrypto } from '@/composables/useCrypto'
 import { useConversationsStore } from '@/stores/conversations'
+import type { DecryptedMessage, MessageCreate, MessageCreateResponse, MessageResponse } from '~/types/models'
+import { useApiFetch } from './useApiFetch'
 
 /**
  * Composable fournissant les fonctions d'envoi et de chargement des messages chiffrés
@@ -28,7 +30,7 @@ export function useMessages() {
    * @param plaintext - Message en clair à envoyer
    */
   async function sendMessage(conversationId: number, plaintext: string) {
-    try {
+
       // Récupère la clé de session pour la conversation
       const sessionKey = await messageStore.getConversationKey(conversationId)
       if (!sessionKey) {
@@ -43,8 +45,6 @@ export function useMessages() {
 
       // Prépare les données associées (utilisées pour l'authentification du message)
       const associatedDataObj = { convId: conversationId, senderId: username }
-      const associatedDataStr = JSON.stringify(associatedDataObj)
-      const associatedData = crypto.stringToUint8Array(associatedDataStr)
 
       // Convertit le message en clair en tableau d'octets
       const plaintextBytes = crypto.stringToUint8Array(plaintext)
@@ -52,49 +52,45 @@ export function useMessages() {
       // Chiffre le message avec la clé de session
       const { cipher, nonce } = await crypto.encryptMessage(plaintextBytes, sessionKey)
 
-      // Récupère l'instance sodium (librairie de cryptographie)
-      const sodium = await (globalThis as any).$sodium
-
       // Encode les éléments nécessaires en base64 pour l'envoi
-      const nonceB64 = sodium.to_base64(nonce)
-      const ciphertextB64 = sodium.to_base64(cipher)
-      const associatedDataB64 = sodium.to_base64(associatedData)
+      const nonceB64 = await crypto.toBase64(nonce)
+      const ciphertextB64 = await crypto.toBase64(cipher)
 
       // Prépare la charge utile à envoyer à l'API
-      const payload = {
+      const payload: MessageCreate = {
         conversationId,
         nonce: nonceB64,
         ciphertext: ciphertextB64,
-        associatedData: associatedDataB64
+        associatedData: associatedDataObj
       }
 
-      // Envoie le message chiffré à l'API backend
-      const response = await fetch('/api/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': authStore.getAuthToken ? `Bearer ${authStore.getAuthToken}` : ''
-        },
-        body: JSON.stringify(payload)
-      })
+      try {
+        // Envoie le message chiffré à l'API backend
+        const response = await useApiFetch<MessageCreateResponse>('/api/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': authStore.getAuthToken ? `Bearer ${authStore.getAuthToken}` : ''
+          },
+          body: JSON.stringify(payload)
+        })
 
-      // Vérifie la réponse de l'API
-      if (!response.ok) {
-        console.error('Erreur API envoi message', await response.text())
-        throw new Error('Erreur lors de l’envoi du message')
+        console.log('Réponse API:', response)
+
+        // Optionnel : mise à jour optimiste du store local (décommenter si souhaité)
+        // messageStore.addMessage(conversationId, {
+        //   sender: username,
+        //   content: plaintext,
+        //   timestamp: new Date().toISOString()
+        // })
+
+    } catch (error: any) {
+      // Vérifie si l'erreur est liée à l'authentification
+      // Si l'erreur est 401, on peut supposer que le token a expiré ou est invalide
+      if (error?.status === 401) {
+        authStore.clearAuthState();
       }
-
-      // Optionnel : mise à jour optimiste du store local (décommenter si souhaité)
-      // messageStore.addMessage(conversationId, {
-      //   sender: username,
-      //   content: plaintext,
-      //   timestamp: new Date().toISOString()
-      // })
-
-    } catch (error) {
-      // Gestion des erreurs lors de l'envoi
-      console.error('Erreur envoi message:', error)
-      throw error
+      console.error('Erreur lors de l\'envoi du message:', error);
     }
   }
 
@@ -103,74 +99,64 @@ export function useMessages() {
    * @param conversationId - Identifiant de la conversation cible
    */
   async function loadHistory(conversationId: number) {
-    try {
+    const crypto = useCrypto()
       // Récupère l'historique chiffré depuis l'API backend
-      const response = await fetch(`/api/conversations/${conversationId}/messages`, {
+      try {
+      const messagesList = await useApiFetch<MessageResponse[]>(`/api/conversations/${conversationId}/messages`, {
         method: 'GET',
         headers: {
           'Authorization': authStore.getAuthToken ? `Bearer ${authStore.getAuthToken}` : ''
         }
       })
-
-      // Vérifie la réponse de l'API
-      if (!response.ok) {
-        console.error('Erreur API chargement historique', await response.text())
-        throw new Error('Erreur lors du chargement de l’historique')
+       // Récupère la clé de session pour la conversation
+       const sessionKey = conversationStore.getSessionKey(conversationId)
+       if (!sessionKey) {
+         throw new Error('Clé de session introuvable pour cette conversation')
+       }
+ 
+       // Tableau pour stocker les messages déchiffrés
+       const decryptedMessages: DecryptedMessage[] = []
+ 
+       // Parcourt chaque message reçu
+       for (const msg of messagesList) {
+         try {
+           // Décode les champs base64 en Uint8Array
+           const nonce = await crypto.fromBase64(msg.nonce)
+           const ciphertext = await crypto.fromBase64(msg.ciphertext)
+ 
+           // Déchiffre le message
+           const plaintextBytes = await crypto.decryptMessage(ciphertext, nonce, sessionKey)
+           const plaintext = crypto.uint8ArrayToString(plaintextBytes)
+ 
+           // Ajoute le message déchiffré au tableau
+           decryptedMessages.push({
+             conversationId: msg.conversationId,
+             messageId: msg.messageId,
+             senderId: msg.senderId,
+             plaintext: plaintext,
+             timestamp: msg.timestamp
+           })
+         } catch (error) {
+           // En cas d'échec de déchiffrement, ajoute un message d'erreur
+           console.error('Erreur déchiffrement message', error)
+           decryptedMessages.push({
+             conversationId: msg.conversationId,
+             messageId: msg.messageId,
+             senderId: msg.senderId,
+             plaintext: '',
+             timestamp: msg.timestamp,
+             error: 'Erreur de déchiffrement'
+           })
+         }
+       }
+ 
+       // Met à jour le store local avec les messages déchiffrés
+       messageStore.setMessagesForConversation(conversationId, decryptedMessages)
+    } catch (error: any) {
+      console.error('Erreur API chargement historique')
+      if (error.status == 401) {
+        authStore.clearAuthState();
       }
-
-      // Récupère les données JSON (liste des messages chiffrés)
-      const data = await response.json()
-      // Récupère l'instance sodium (librairie de cryptographie)
-      const sodium = await (globalThis as any).$sodium
-
-      // Récupère la clé de session pour la conversation
-      const sessionKey = conversationStore.getSessionKey(conversationId)
-      if (!sessionKey) {
-        throw new Error('Clé de session introuvable pour cette conversation')
-      }
-
-      // Tableau pour stocker les messages déchiffrés
-      const decryptedMessages = []
-
-      // Parcourt chaque message reçu
-      for (const msg of data) {
-        try {
-          // Décode les champs base64 en Uint8Array
-          const nonce = sodium.from_base64(msg.nonce)
-          const ciphertext = sodium.from_base64(msg.ciphertext)
-          // Champs optionnels (non utilisés ici mais prévus pour compatibilité)
-          const authTag = msg.authTag ? sodium.from_base64(msg.authTag) : undefined
-          const associatedData = msg.associatedData ? sodium.from_base64(msg.associatedData) : undefined
-
-          // Déchiffre le message
-          const plaintextBytes = await crypto.decryptMessage(ciphertext, nonce, sessionKey)
-          const plaintext = crypto.uint8ArrayToString(plaintextBytes)
-
-          // Ajoute le message déchiffré au tableau
-          decryptedMessages.push({
-            messageId: msg.id,
-            senderId: msg.sender,
-            plaintext: plaintext,
-            timestamp: msg.timestamp
-          })
-        } catch (error) {
-          // En cas d'échec de déchiffrement, ajoute un message d'erreur
-          console.error('Erreur déchiffrement message', error)
-          decryptedMessages.push({
-            messageId: msg.id,
-            senderId: msg.sender,
-            plaintext: '',
-            timestamp: msg.timestamp,
-            error: 'Erreur de déchiffrement'
-          })
-        }
-      }
-
-      // Met à jour le store local avec les messages déchiffrés
-      messageStore.setMessagesForConversation(conversationId, decryptedMessages)
-    } catch (error) {
-      // Gestion des erreurs lors du chargement de l'historique
-      console.error('Erreur chargement historique:', error)
     }
   }
 

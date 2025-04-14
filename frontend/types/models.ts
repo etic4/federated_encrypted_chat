@@ -1,5 +1,3 @@
-
-
 export interface User {
   id: string;
   username: string;
@@ -51,7 +49,6 @@ export interface KdfParams {
   parallelism: number;
 }
 
-
 export interface Token {
   accessToken: string;
   tokenType: string;
@@ -81,24 +78,26 @@ export interface MessageCreateResponse {
   timestamp: string; // ISO 8601 format
 }
 
-export interface MessageBase {
+
+export interface MessageCreate {
+  conversationId: number;
   nonce: string; // Base64
   ciphertext: string; // Base64
-  authTag: string; // Base64
   associatedData?: Record<string, unknown>;
 }
 
-export interface MessageCreate extends MessageBase {
+export interface MessageResponse {
   conversationId: number;
-}
-
-export interface MessageResponse extends MessageBase {
   messageId: number;
   senderId: string; // Username
   timestamp: string; // ISO 8601 format
+  nonce: string; // Base64
+  ciphertext: string; // Base64
+  associatedData?: Record<string, unknown>;
 }
 
 export interface DecryptedMessage {
+  conversationId: number;
   messageId: number;
   senderId: string;
   timestamp: string;
@@ -117,10 +116,6 @@ export interface ConversationResponse {
   createdAt: string; // ISO 8601 format
 }
 
-
-export interface ConversationListResponse {
-  conversations: ConversationResponse[];
-}
 
 export interface ParticipantAddRequest {
   userId: number; // ID utilisateur

@@ -72,7 +72,6 @@ class Message(Base):
 
     nonce: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     ciphertext: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
-    auth_tag: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     associated_data: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
 
     conversation = relationship("Conversation", back_populates="messages")

@@ -10,23 +10,26 @@
  */
 
 import { defineStore } from 'pinia';
-import { getSodium } from '../composables/useCrypto';
+import { useCrypto } from '../composables/useCrypto';
 import { ref, computed } from 'vue';
 import type { Ref } from 'vue';
 import type { ConversationResponse } from '~/types/models';
+
+const crypto = useCrypto();
 
 
 export const useConversationsStore = defineStore('conversations', () => {
   // =========================
   // ÉTAT (STATE)
   // =========================
-
+  
   /**
    * Liste des conversations de l'utilisateur.
    * Chaque conversation suit le modèle ConversationResponse.
    */
   const conversations: Ref<ConversationResponse[]> = ref([]);
 
+ 
   /**
    * Clés de session déchiffrées pour chaque conversation.
    * Clé : conversationId, Valeur : clé de session (Uint8Array).
@@ -168,8 +171,7 @@ export const useConversationsStore = defineStore('conversations', () => {
 
     // Mettre à jour la clé publique dans le cache local (asynchrone)
     ;(async () => {
-      const sodium = await getSodium()
-      participantPublicKeys.value[data.contactId] = sodium.from_base64(data.newPublicKey)
+      participantPublicKeys.value[data.contactId] = await crypto.fromBase64(data.newPublicKey)
     })()
   }
 

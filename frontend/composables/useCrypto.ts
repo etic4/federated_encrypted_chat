@@ -9,7 +9,7 @@
  * - Encodage/décodage (base64, hex, string)
  * - Calcul de "numéro de sécurité" pour la vérification d'identité
  *
- * Toutes les fonctions sont asynchrones et utilisent la librairie `libsodium-wrappers-sumo` chargée via un plugin Nuxt (window.$sodium).
+ * Toutes les fonctions sont asynchrones et utilisent la librairie `libsodium-wrappers` chargée via un plugin Nuxt (window.$sodium).
  *
  * Sécurité :
  * - Les clés privées ne quittent jamais le navigateur.
@@ -18,16 +18,15 @@
  *
  * À utiliser dans les composants ou autres composables pour toute opération cryptographique.
  */
-import { ref } from 'vue'
 
 // Charge la bibliothèque libsodium depuis l'objet global `window`
 /**
  * Récupère l'instance libsodium initialisée sur l'objet global window.
  * Doit être appelée avant toute opération cryptographique.
  * @throws {Error} Si libsodium n'est pas initialisé (plugin manquant ou non chargé)
- * @returns {Promise<typeof import('libsodium-wrappers-sumo')>} Instance sodium prête à l'emploi
+ * @returns {Promise<typeof import('libsodium-wrappers')>} Instance sodium prête à l'emploi
  */
-const getSodium = async (): Promise<typeof import('libsodium-wrappers-sumo')> => {
+const getSodium = async (): Promise<typeof import('libsodium-wrappers')> => {
   if (!window.$sodium) {
     throw new Error('Libsodium is not initialized')
   }
@@ -42,7 +41,7 @@ export function useCrypto() {
    * @returns {Promise<{publicKey: Uint8Array, privateKey: Uint8Array}>}
    * À utiliser pour l'identité principale de l'utilisateur.
    */
-  const generateIdentityKeyPair = async () => {
+  const generateIdentityKeyPair = async (): Promise<{ publicKey: Uint8Array; privateKey: Uint8Array }> => {
     const sodium = await getSodium()
     return sodium.crypto_box_keypair()
   }
@@ -55,7 +54,7 @@ export function useCrypto() {
    * Sécurité : le sel doit être unique par utilisateur/mot de passe.
    * Usage : chiffrement de la clé privée sur le device.
    */
-  const deriveKeyFromPassword = async (password: string, salt: Uint8Array) => {
+  const deriveKeyFromPassword = async (password: string, salt: Uint8Array): Promise<{ key: Uint8Array; params: object }> => {
     const sodium = await getSodium()
     const keyLength = sodium.crypto_secretbox_KEYBYTES
     const key = sodium.crypto_pwhash(
@@ -83,7 +82,7 @@ export function useCrypto() {
    * @returns {Promise<Uint8Array>} Sel aléatoire
    * Usage : à stocker avec le hash de mot de passe ou la clé chiffrée.
    */
-  const generateKdfSalt = async (length?: number) => {
+  const generateKdfSalt = async (length?: number): Promise<Uint8Array> => {
     const sodium = await getSodium()
     const saltLength = length ?? sodium.crypto_pwhash_SALTBYTES
     return sodium.randombytes_buf(saltLength)
@@ -96,7 +95,7 @@ export function useCrypto() {
    * @returns {Promise<{cipher: Uint8Array, nonce: Uint8Array}>}
    * Sécurité : le nonce est aléatoire et doit être stocké avec le cipher.
    */
-  const encryptPrivateKey = async (privateKey: Uint8Array, key: Uint8Array) => {
+  const encryptPrivateKey = async (privateKey: Uint8Array, key: Uint8Array): Promise<{ cipher: Uint8Array; nonce: Uint8Array; }> => {
     const sodium = await getSodium()
     const nonce = sodium.randombytes_buf(sodium.crypto_secretbox_NONCEBYTES)
     const cipher = sodium.crypto_secretbox_easy(privateKey, nonce, key)
@@ -110,7 +109,7 @@ export function useCrypto() {
    * @param {Uint8Array} key - Clé symétrique
    * @returns {Promise<Uint8Array|null>} Clé privée ou null si échec (mauvaise clé)
    */
-  const decryptPrivateKey = async (cipher: Uint8Array, nonce: Uint8Array, key: Uint8Array) => {
+  const decryptPrivateKey = async (cipher: Uint8Array, nonce: Uint8Array, key: Uint8Array): Promise<Uint8Array | null> => {
     const sodium = await getSodium()
     return sodium.crypto_secretbox_open_easy(cipher, nonce, key)
   }
@@ -120,38 +119,38 @@ export function useCrypto() {
    * @returns {Promise<Uint8Array>} Clé de session
    * Usage : pour le chiffrement symétrique temporaire.
    */
-  const generateSessionKey = async () => {
+  const generateSessionKey = async (): Promise<Uint8Array> => {
     const sodium = await getSodium()
     return sodium.randombytes_buf(sodium.crypto_secretbox_KEYBYTES)
   }
 
-  /**
-   * Chiffre un message de façon asymétrique (crypto_box).
-   * @param {Uint8Array} message - Message à chiffrer
-   * @param {Uint8Array} publicKey - Clé publique du destinataire
-   * @param {Uint8Array} privateKey - Clé privée de l'expéditeur
-   * @returns {Promise<{cipher: Uint8Array, nonce: Uint8Array}>}
-   * Usage : envoi de messages privés.
-   */
-  const encryptAsymmetric = async (message: Uint8Array, publicKey: Uint8Array, privateKey: Uint8Array) => {
-    const sodium = await getSodium()
-    const nonce = sodium.randombytes_buf(sodium.crypto_box_NONCEBYTES)
-    const cipher = sodium.crypto_box_easy(message, nonce, publicKey, privateKey)
-    return { cipher, nonce }
-  }
+  // /**
+  //  * Chiffre un message de façon asymétrique (crypto_box).
+  //  * @param {Uint8Array} message - Message à chiffrer
+  //  * @param {Uint8Array} publicKey - Clé publique du destinataire
+  //  * @param {Uint8Array} privateKey - Clé privée de l'expéditeur
+  //  * @returns {Promise<{cipher: Uint8Array, nonce: Uint8Array}>}
+  //  * Usage : envoi de messages privés.
+  //  */
+  // const encryptAsymmetric = async (message: Uint8Array, publicKey: Uint8Array, privateKey: Uint8Array): Promise<{ cipher: Uint8Array; nonce: Uint8Array; }> => {
+  //   const sodium = await getSodium()
+  //   const nonce = sodium.randombytes_buf(sodium.crypto_box_NONCEBYTES)
+  //   const cipher = sodium.crypto_box_easy(message, nonce, publicKey, privateKey)
+  //   return { cipher, nonce }
+  // }
 
-  /**
-   * Déchiffre un message asymétrique (crypto_box).
-   * @param {Uint8Array} cipher - Message chiffré
-   * @param {Uint8Array} nonce - Nonce utilisé
-   * @param {Uint8Array} publicKey - Clé publique de l'expéditeur
-   * @param {Uint8Array} privateKey - Clé privée du destinataire
-   * @returns {Promise<Uint8Array|null>} Message déchiffré ou null si échec
-   */
-  const decryptAsymmetric = async (cipher: Uint8Array, nonce: Uint8Array, publicKey: Uint8Array, privateKey: Uint8Array) => {
-    const sodium = await getSodium()
-    return sodium.crypto_box_open_easy(cipher, nonce, publicKey, privateKey)
-  }
+  // /**
+  //  * Déchiffre un message asymétrique (crypto_box).
+  //  * @param {Uint8Array} cipher - Message chiffré
+  //  * @param {Uint8Array} nonce - Nonce utilisé
+  //  * @param {Uint8Array} publicKey - Clé publique de l'expéditeur
+  //  * @param {Uint8Array} privateKey - Clé privée du destinataire
+  //  * @returns {Promise<Uint8Array|null>} Message déchiffré ou null si échec
+  //  */
+  // const decryptAsymmetric = async (cipher: Uint8Array, nonce: Uint8Array, publicKey: Uint8Array, privateKey: Uint8Array): Promise<Uint8Array | null> => {
+  //   const sodium = await getSodium()
+  //   return sodium.crypto_box_open_easy(cipher, nonce, publicKey, privateKey)
+  // }
 
   /**
    * Chiffre un message avec une clé symétrique (crypto_secretbox).
@@ -174,7 +173,7 @@ export function useCrypto() {
    * @param {Uint8Array} key - Clé symétrique
    * @returns {Promise<Uint8Array|null>} Message déchiffré ou null si échec
    */
-  const decryptMessage = async (cipher: Uint8Array, nonce: Uint8Array, key: Uint8Array) => {
+  const decryptMessage = async (cipher: Uint8Array, nonce: Uint8Array, key: Uint8Array): Promise<Uint8Array | null> => {
     const sodium = await getSodium()
     return sodium.crypto_secretbox_open_easy(cipher, nonce, key)
   }
@@ -186,7 +185,7 @@ export function useCrypto() {
    * @returns {Promise<Uint8Array>} Signature détachée
    * Usage : authentification, vérification d'intégrité.
    */
-  const sign = async (message: Uint8Array, privateKey: Uint8Array) => {
+  const sign = async (message: Uint8Array, privateKey: Uint8Array): Promise<Uint8Array> => {
     const sodium = await getSodium()
     return sodium.crypto_sign_detached(message, privateKey)
   }
@@ -198,7 +197,7 @@ export function useCrypto() {
    * @param {Uint8Array} publicKey - Clé publique de l'expéditeur
    * @returns {Promise<boolean>} true si valide, false sinon
    */
-  const verifySignature = async (message: Uint8Array, signature: Uint8Array, publicKey: Uint8Array) => {
+  const verifySignature = async (message: Uint8Array, signature: Uint8Array, publicKey: Uint8Array): Promise<boolean> => {
     const sodium = await getSodium()
     return sodium.crypto_sign_verify_detached(signature, message, publicKey)
   }
@@ -211,7 +210,7 @@ export function useCrypto() {
    * @param {string} myId - Identifiant local (ex : userId)
    * @param {string} theirId - Identifiant distant
    * @returns {Promise<string>} Numéro de sécurité formaté (groupes de chiffres)
-   * Algorithme : concat, hash SHA-512, tronquage, conversion en groupes de chiffres.
+   * Algorithme : concat, sodium.generichash longueur 30, conversion en groupes de chiffres.
    */
   const calculateSafetyNumber = async (
     myPublicKey: Uint8Array,
@@ -233,12 +232,11 @@ export function useCrypto() {
     // Hash SHA-512, tronqué à 30 octets, puis conversion en groupes de 4 chiffres (10 bits)
     const encoder = new TextEncoder()
     const dataToHash = encoder.encode(concatStr)
-    const fullHash = sodium.crypto_hash_sha512(dataToHash)
-    const truncatedHash = fullHash.slice(0, 30)
+    const dataHash = sodium.crypto_generichash(30, dataToHash)
     let bitBuffer = 0
     let bitBufferLen = 0
     const digits: string[] = []
-    for (const byte of truncatedHash) {
+    for (const byte of dataHash) {
       bitBuffer = (bitBuffer << 8) | byte
       bitBufferLen += 8
       while (bitBufferLen >= 10) {
@@ -266,7 +264,7 @@ export function useCrypto() {
    * @returns {Promise<Uint8Array>} Message chiffré
    * Usage : envoi anonyme, onboarding, etc.
    */
-  const seal = async (message: Uint8Array, publicKey: Uint8Array) => {
+  const seal = async (message: Uint8Array, publicKey: Uint8Array): Promise<Uint8Array> => {
     const sodium = await getSodium()
     return sodium.crypto_box_seal(message, publicKey)
   }
@@ -278,7 +276,7 @@ export function useCrypto() {
    * @param {Uint8Array} privateKey - Clé privée du destinataire
    * @returns {Promise<Uint8Array|null>} Message déchiffré ou null si échec
    */
-  const sealOpen = async (cipher: Uint8Array, publicKey: Uint8Array, privateKey: Uint8Array) => {
+  const sealOpen = async (cipher: Uint8Array, publicKey: Uint8Array, privateKey: Uint8Array): Promise<Uint8Array | null> => {
     const sodium = await getSodium()
     return sodium.crypto_box_seal_open(cipher, publicKey, privateKey)
   }
@@ -288,7 +286,7 @@ export function useCrypto() {
    * @param {Uint8Array} data - Données à encoder
    * @returns {Promise<string>} Chaîne base64
    */
-  const toBase64 = async (data: Uint8Array) => {
+  const toBase64 = async (data: Uint8Array): Promise<string> => {
     const sodium = await getSodium()
     return sodium.to_base64(data)
   }
@@ -298,7 +296,7 @@ export function useCrypto() {
    * @param {string} data - Chaîne base64
    * @returns {Promise<Uint8Array>} Données binaires
    */
-  const fromBase64 = async (data: string) => {
+  const fromBase64 = async (data: string): Promise<Uint8Array> => {
     const sodium = await getSodium()
     return sodium.from_base64(data)
   }
@@ -340,7 +338,7 @@ export function useCrypto() {
    * @param {Uint8Array} data - Données à encoder
    * @returns {Promise<string>} Chaîne hexadécimale
    */
-  const toHex = async (data: Uint8Array) => {
+  const toHex = async (data: Uint8Array): Promise<string> => {
     const sodium = await getSodium()
     return sodium.to_hex(data)
   }
@@ -350,7 +348,7 @@ export function useCrypto() {
    * @param {string} data - Chaîne hexadécimale
    * @returns {Promise<Uint8Array>}
    */
-  const fromHex = async (data: string) => {
+  const fromHex = async (data: string): Promise<Uint8Array> => {
     const sodium = await getSodium()
     return sodium.from_hex(data)
   }
@@ -360,7 +358,7 @@ export function useCrypto() {
    * @param {string} str - Chaîne à encoder
    * @returns {Uint8Array}
    */
-  const stringToUint8Array = (str: string) => {
+  const stringToUint8Array = (str: string): Uint8Array => {
     return new TextEncoder().encode(str)
   }
 
@@ -369,7 +367,7 @@ export function useCrypto() {
    * @param {Uint8Array} arr - Données à décoder
    * @returns {string}
    */
-  const uint8ArrayToString = (arr: Uint8Array) => {
+  const uint8ArrayToString = (arr: Uint8Array): string => {
     return new TextDecoder().decode(arr)
   }
 
@@ -381,8 +379,8 @@ export function useCrypto() {
     encryptPrivateKey,
     decryptPrivateKey,
     generateSessionKey,
-    encryptAsymmetric,
-    decryptAsymmetric,
+    // encryptAsymmetric,
+    // decryptAsymmetric,
     encryptMessage,
     decryptMessage,
     sign,

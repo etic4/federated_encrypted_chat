@@ -35,11 +35,11 @@ async def create_message(
     if participant is None:
         raise HTTPException(status_code=403, detail="Vous n'êtes pas participant à cette conversation")
 
+    # FIXME: revoir le model, inutile de décoder le nonce, ciphertext et authTag
     # Créer le message
     try:
         nonce_bytes = base64.b64decode(message_in.nonce)
         ciphertext_bytes = base64.b64decode(message_in.ciphertext)
-        auth_tag_bytes = base64.b64decode(message_in.authTag)
     except Exception:
         raise HTTPException(status_code=400, detail="Erreur de décodage base64")
 
@@ -48,7 +48,6 @@ async def create_message(
         sender_id=user.id,
         nonce=nonce_bytes,
         ciphertext=ciphertext_bytes,
-        auth_tag=auth_tag_bytes,
         associated_data=message_in.associatedData
     )
 
@@ -63,7 +62,9 @@ async def create_message(
     participants = result.scalars().all()
     participant_usernames = [p.user.username for p in participants]
 
+    # FIXME ne pas reencoder le nonce, ciphertext et authTag si in DB tels quels
     # Construire le payload
+
     payload = {
         "type": "newMessage",
         "messageId": new_message.id,
@@ -72,7 +73,6 @@ async def create_message(
         "timestamp": new_message.timestamp.isoformat(),
         "nonce": base64.b64encode(new_message.nonce).decode(),
         "ciphertext": base64.b64encode(new_message.ciphertext).decode(),
-        "authTag": base64.b64encode(new_message.auth_tag).decode(),
         "associatedData": new_message.associated_data,
     }
 

@@ -488,8 +488,8 @@ L'application suit une architecture client-serveur classique, avec une séparati
 *   Composants UI : Shadcn-Vue
 *   Styling : TailwindCSS
 *   Gestion d'état : Pinia (recommandé avec Nuxt 3)
-*   Cryptographie : Web Crypto API (`SubtleCrypto`) ou `libsodium-wrappers`.
-*   Appels HTTP : `fetch` (via `$fetch` de Nuxt/OhMyFetch) ou `axios`.
+*   Cryptographie : `libsodium-wrappers`.
+*   Appels HTTP : `fetch` (via `$fetch` de Nuxt).
 
 #### 4.3.3. Structure Modulaire (Composables/Store)
 
@@ -646,9 +646,9 @@ Le serveur envoie des messages JSON au client pour notifier des événements en 
         "conversationId": 45,
         "senderId": "Alice", // Username
         "timestamp": "2025-04-09T19:30:00Z",
-        "nonce": "...", // Base64/Hex
-        "ciphertext": "...", // Base64/Hex
-        "authTag": "...", // Base64/Hex
+        "nonce": "...", // Base64
+        "ciphertext": "...", // Base64
+        "authTag": "...", // Base64
         "associatedData": { ... } // Optionnel
       }
     }
@@ -768,8 +768,8 @@ Le serveur envoie des messages JSON au client pour notifier des événements en 
 
 ### 7.1. Déploiement Initial
 
-*   **Backend :** Déploiement de l'application FastAPI via un serveur ASGI (Uvicorn/Hypercorn) derrière un reverse proxy (Nginx/Caddy) gérant TLS. Gestion des dépendances Python (venv/Poetry/Pipenv).
-*   **Frontend :** Build de l'application Nuxt (`npm run build`). Déploiement des fichiers statiques générés via un serveur web (Nginx/Caddy) ou un service d'hébergement statique. Configuration correcte pour le mode SPA ou SSR de Nuxt.
+*   **Backend :** Déploiement de l'application FastAPI via un serveur ASGI (Uvicorn) derrière un reverse proxy (Caddy) gérant TLS. Gestion des dépendances Python (venv).
+*   **Frontend :** Build de l'application Nuxt (`npm run build`). Déploiement des fichiers statiques générés via un serveur web (Caddy) ou un service d'hébergement statique. Configuration correcte pour le mode SPA ou SSR de Nuxt.
 *   **Configuration :** Gestion des secrets (ex: clé pour signer les JWT si utilisés), configuration des paramètres KDF, configuration TLS.
 
 ### 7.2. Maintenance et Mises à Jour
@@ -783,31 +783,14 @@ Le serveur envoie des messages JSON au client pour notifier des événements en 
 
 *   **AEAD (Authenticated Encryption with Associated Data) :** Mode de chiffrement symétrique (ex: AES-GCM) qui assure à la fois la Confidentialité, l'Intégrité et l'Authenticité des données chiffrées, ainsi que l'intégrité des données associées non chiffrées.
 *   **AES-GCM (Advanced Encryption Standard - Galois/Counter Mode) :** Algorithme de chiffrement symétrique AEAD, standard de l'industrie, performant et sécurisé.
-*   **API (Application Programming Interface) :** Interface permettant à différents composants logiciels de communiquer entre eux (ici, entre le frontend et le backend via REST et WebSocket).
 *   **Argon2id :** Fonction de dérivation de clé (KDF) moderne et robuste, résistante aux attaques par GPU et ASIC, recommandée par l'OWASP pour le hachage de mots de passe et la dérivation de clés.
 *   **Challenge-Réponse :** Protocole d'authentification où une partie (serveur) envoie une donnée aléatoire (challenge) à l'autre partie (client), qui doit prouver son identité en transformant ce challenge d'une manière spécifique (ex: en le signant avec sa clé privée).
-*   **Chiffrement Asymétrique :** Cryptographie utilisant une paire de clés : une publique (pour chiffrer ou vérifier une signature) et une privée (pour déchiffrer ou signer). Ex: RSA, ECIES, Ed25519/X25519.
-*   **Chiffrement Symétrique :** Cryptographie utilisant la même clé secrète pour chiffrer et déchiffrer. Ex: AES.
-*   **E2EE (End-to-End Encryption) :** Chiffrement de bout en bout. Méthode de communication où seuls l'expéditeur et le(s) destinataire(s) peuvent lire les messages. Le serveur intermédiaire ne le peut pas.
 *   **Ed25519 :** Algorithme de signature numérique basé sur les courbes elliptiques (Curve25519), rapide et sécurisé.
-*   **FastAPI :** Framework web Python moderne et performant pour construire des APIs, basé sur les type hints Python et Starlette/Pydantic.
 *   **Forward Secrecy (FS) / Confidentialité Persistante :** Propriété d'un protocole où la compromission des clés à long terme ne compromet pas la confidentialité des communications passées (les clés de session passées ne peuvent pas être retrouvées). *Non fourni par le protocole de session simplifié ici.*
 *   **KDF (Key Derivation Function) :** Fonction qui dérive une ou plusieurs clés cryptographiques à partir d'une source secrète (ex: mot de passe) et d'un sel. Conçue pour être lente et gourmande en ressources pour résister au brute-force. Ex: Argon2id, scrypt, PBKDF2.
 *   **libsodium :** Bibliothèque cryptographique moderne et facile à utiliser, offrant une large gamme d'algorithmes. `libsodium-wrappers` est son portage pour le web (JavaScript/WASM).
-*   **MitM (Man-in-the-Middle) :** Type d'attaque où un attaquant s'interpose secrètement entre deux parties qui communiquent, pouvant intercepter, lire ou modifier leurs messages.
 *   **Nonce (Number used once) :** Nombre aléatoire ou pseudo-aléatoire utilisé une seule fois dans un contexte cryptographique (ex: avec AES-GCM). La réutilisation d'un nonce avec la même clé compromet gravement la sécurité.
-*   **Nuxt.js :** Framework basé sur Vue.js pour créer des applications web universelles, statiques ou monopages (SPA), offrant des fonctionnalités comme le routage, le rendu côté serveur (SSR), etc.
-*   **ORM (Object-Relational Mapper) :** Bibliothèque qui mappe les objets du code applicatif aux tables d'une base de données relationnelle. Ex: SQLAlchemy, Tortoise ORM.
-*   **Pinia :** Bibliothèque de gestion d'état pour Vue.js, recommandée pour les applications Vue 3 / Nuxt 3.
 *   **Post-Compromise Security (PCS) / Future Secrecy :** Propriété d'un protocole où, si l'état interne (ex: clé de session) est compromis à un instant T, le protocole peut se "rétablir" de sorte que les communications *futures* redeviennent sécurisées. *Non fourni par le protocole de session simplifié ici.*
 *   **PKI (Public Key Infrastructure) :** Infrastructure basée sur des autorités de certification pour gérer et vérifier les clés publiques. *Non utilisé dans ce projet.*
-*   **REST (Representational State Transfer) :** Style d'architecture logicielle pour les systèmes distribués, couramment utilisé pour les APIs web.
-*   **Shadcn-Vue :** Collection de composants UI réutilisables pour Vue.js, basés sur Radix Vue et Tailwind CSS.
-*   **SQLite :** Système de gestion de base de données relationnelle contenu dans une bibliothèque C, stockant la base de données dans un unique fichier. Simple mais limité en concurrence.
-*   **SubtleCrypto :** Interface de bas niveau de la Web Crypto API, permettant d'effectuer des opérations cryptographiques de base (hachage, signature, chiffrement) dans le navigateur.
-*   **TailwindCSS :** Framework CSS "utility-first" pour construire rapidement des interfaces personnalisées.
-*   **TLS (Transport Layer Security) :** Protocole cryptographique assurant la sécurité des communications sur un réseau (successeur de SSL). Utilisé par HTTPS et WSS.
-*   **WebSocket :** Protocole de communication réseau permettant une communication bidirectionnelle full-duplex sur une seule connexion TCP, idéal pour les applications temps réel.
-*   **WSS (WebSocket Secure) :** WebSocket utilisant une connexion sécurisée par TLS.
 *   **X25519 :** Algorithme d'échange de clés Diffie-Hellman basé sur les courbes elliptiques (Curve25519), utilisé pour établir des secrets partagés.
 *   **XSS (Cross-Site Scripting) :** Type de faille de sécurité web permettant à un attaquant d'injecter du script côté client dans des pages web vues par d'autres utilisateurs. Dangereux si le script accède à des données sensibles (comme des clés crypto en mémoire).

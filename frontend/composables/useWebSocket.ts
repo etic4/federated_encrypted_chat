@@ -29,12 +29,15 @@ interface WebSocketMessage {
  * Interface pour la charge utile d'un nouveau message reçu.
  */
 interface NewMessagePayload {
+  type: 'newMessage';
   conversationId: number;
   messageId: number;
   senderId: string;
   timestamp: string;
+  nonce: string; // Message nonce
   ciphertext: string; // Message chiffré
-  [key: string]: any;
+  associatedData: string; // Données associées
+  
 }
 
 // Variables globales pour la gestion de la reconnexion automatique
@@ -114,7 +117,7 @@ export function useWebSocket() {
         switch (data.type) {
           case 'newMessage':
             // Nouveau message dans une conversation : délègue au store messages
-            messageStore.handleIncomingMessage(data as unknown as NewMessagePayload);
+            messageStore.handleIncomingMessage(data as NewMessagePayload);
             break;
 
           case 'participantAdded': {
@@ -155,11 +158,9 @@ export function useWebSocket() {
               const { cipher, nonce, senderPublicKey } = newEncryptedSessionKey;
               const crypto = useCrypto();
               // Conversion base64 -> Uint8Array si besoin
-              const cipherBuf = typeof cipher === 'string' ? await crypto.fromBase64(cipher) : cipher;
-              const nonceBuf = typeof nonce === 'string' ? await crypto.fromBase64(nonce) : nonce;
-              const senderPubKeyBuf = typeof senderPublicKey === 'string'
-                ? await crypto.fromBase64(senderPublicKey)
-                : senderPublicKey;
+              const cipherBuf = await crypto.fromBase64(cipher);
+              const nonceBuf = await crypto.fromBase64(nonce);
+              const senderPubKeyBuf = await crypto.fromBase64(senderPublicKey);
               let rawPrivateKey = authStore.privateKey;
               let privateKeyBuf: Uint8Array | null = null;
               if (typeof rawPrivateKey === 'string') {

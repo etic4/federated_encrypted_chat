@@ -5,14 +5,11 @@ import UiCardHeader from '@/components/ui/card/CardHeader.vue'
 import UiCardTitle from '@/components/ui/card/CardTitle.vue'
 import UiCardDescription from '@/components/ui/card/CardDescription.vue'
 import UiScrollArea from '@/components/ui/scroll-area/ScrollArea.vue'
+import type { ConversationResponse } from '~/types/models'
 
-interface Conversation {
-  id: string
-  participants: string[]
-}
 
 const props = defineProps<{
-  conversations: Conversation[]
+  conversations: ConversationResponse[]
 }>()
 </script>
 
@@ -22,11 +19,11 @@ const props = defineProps<{
       <div class="grid gap-4">
         <ui-card
           v-for="conv in conversations"
-          :key="conv.id"
+          :key="conv.conversationId"
           class="cursor-pointer hover:bg-gray-100 transition"
         >
           <ui-card-header>
-            <ui-card-title>Conversation {{ conv.id }}</ui-card-title>
+            <ui-card-title>Conversation {{ conv.conversationId }}</ui-card-title>
             <ui-card-description>
               Participants :
               <span v-for="(p, idx) in conv.participants" :key="idx">

@@ -2,8 +2,10 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from jose import jwt, JWTError
 from starlette.websockets import WebSocketState
 import asyncio
+from typing import Union
 
 from app.security import SECRET_KEY, ALGORITHM
+from app.schemas import KeyRotationPayload, NewMessagePayload, ParticipantAddedPayload, RemoveFromConversationPayload
 
 router = APIRouter()
 
@@ -36,11 +38,16 @@ class ConnectionManager:
             if username in self.active_connections:
                 del self.active_connections[username]
 
-    async def send_personal_message(self, message: str, username: str) -> None:
+    async def send_personal_message(
+        self,
+        message: KeyRotationPayload | RemoveFromConversationPayload,
+        username: str
+    ) -> None:
         async with self.lock:
             websocket = self.active_connections.get(username)
             if websocket and websocket.application_state == WebSocketState.CONNECTED:
-                await websocket.send_text(message)
+                message_str = message.model_dump_json()
+                await websocket.send_text(message_str)
 
     async def broadcast(self, message: str) -> None:
         async with self.lock:
@@ -48,11 +55,14 @@ class ConnectionManager:
                 if ws.application_state == WebSocketState.CONNECTED:
                     await ws.send_text(message)
 
-    async def send_to_participants(self, message: dict, participants: list[str]) -> None:
-        import json
-        message_str = json.dumps(message)
+    async def send_to_participants(
+        self,
+        payload: NewMessagePayload | ParticipantAddedPayload,
+        participant_usernames: list[str]
+    ) -> None:
+        message_str = payload.model_dump_json()
         async with self.lock:
-            for username in participants:
+            for username in participant_usernames:
                 ws = self.active_connections.get(username)
                 if ws and ws.application_state == WebSocketState.CONNECTED:
                     await ws.send_text(message_str)

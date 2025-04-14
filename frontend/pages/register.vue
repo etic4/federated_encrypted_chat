@@ -1,3 +1,32 @@
+<script setup>
+import { ref } from 'vue';
+import { useRouter } from 'vue-router';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '~/components/ui/card'
+import { Input } from '~/components/ui/input'
+import { Button } from '~/components/ui/button'
+import { useAuth } from '~/composables/useAuth'
+
+const errorMessage = ref('');
+const isLoading = ref(false);
+const router = useRouter();
+const auth = useAuth();
+
+const onSubmit = async (values) => {
+  try {
+    isLoading.value = true;
+    errorMessage.value = '';
+    
+    await auth.registerUser(values.username, values.password);
+    router.push('/');
+  } catch (error) {
+    errorMessage.value = 'Registration failed. Please try again.';
+    console.error('Registration failed:', error);
+  } finally {
+    isLoading.value = false;
+  }
+};
+</script>
+
 <template>
   <div class="container">
     <Card>
@@ -36,35 +65,6 @@
     </Card>
   </div>
 </template>
-
-<script setup>
-import { ref } from 'vue';
-import { useRouter } from 'vue-router';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '~/components/ui/card'
-import { Input } from '~/components/ui/input'
-import { Button } from '~/components/ui/button'
-import { useAuth } from '~/composables/useAuth'
-
-const errorMessage = ref('');
-const isLoading = ref(false);
-const router = useRouter();
-const auth = useAuth();
-
-const onSubmit = async (values) => {
-  try {
-    isLoading.value = true;
-    errorMessage.value = '';
-    
-    await auth.registerUser(values.username, values.password);
-    router.push('/');
-  } catch (error) {
-    errorMessage.value = 'Registration failed. Please try again.';
-    console.error('Registration failed:', error);
-  } finally {
-    isLoading.value = false;
-  }
-};
-</script>
 
 <style scoped>
 .container {

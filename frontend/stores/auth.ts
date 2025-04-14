@@ -6,8 +6,8 @@
  */
 
 import { defineStore } from 'pinia'
-import type { User } from '~/types/user'
-import type { KdfParams } from '~/types/kdfParams'
+import type { User } from '~/types/models'
+import type { KdfParams } from '~/types/models'
 
 /**
  * Store d'authentification pour gérer l'état de l'utilisateur et les informations de connexion.

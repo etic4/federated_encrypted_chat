@@ -8,7 +8,7 @@
 import { ref, type Ref } from 'vue';
 import { defineStore } from 'pinia';
 import { useCrypto } from '~/composables/useCrypto';
-import type { DecryptedMessage } from '~/types/models';
+import type { DecryptedMessage, MessageResponse } from '~/types/models';
 import { useConversationsStore } from './conversations';
 
 
@@ -70,9 +70,8 @@ export const useMessageStore = defineStore('messages', () => {
    * @param conversationId Identifiant de la conversation
    * @returns Clé de conversation ou null
    */
-  async function getConversationKey(conversationId: number): Promise<Uint8Array | null> {
-    // TODO: remplacer par la vraie récupération de clé
-    return null;
+  function getConversationKey(conversationId: number): Uint8Array | undefined {
+    return conversationsStore.getSessionKey(conversationId);
   }
 
   /**
@@ -83,13 +82,7 @@ export const useMessageStore = defineStore('messages', () => {
    *
    * @param messageData Données du message chiffré à traiter.
    */
-  async function handleIncomingMessage(messageData: {
-    conversationId: number;
-    messageId: number;
-    senderId: string;
-    timestamp: string;
-    ciphertext: string; // base64
-  }) {
+  async function handleIncomingMessage(messageData: MessageResponse) {
     // Extraction des champs du message reçu
     const { conversationId, messageId, senderId, timestamp, ciphertext } = messageData;
     let plaintext = '';
@@ -97,7 +90,7 @@ export const useMessageStore = defineStore('messages', () => {
 
     try {
       // Récupère la clé de session pour la conversation
-      const key = conversationsStore.getSessionKey(conversationId);
+      const key = getConversationKey(conversationId);
       if (!key) {
         // Si la clé n'est pas trouvée, on lève une erreur explicite
         throw new Error('Clé de conversation introuvable');
@@ -133,6 +126,7 @@ export const useMessageStore = defineStore('messages', () => {
      * L'objet est ensuite ajouté à la conversation concernée.
      */
     const decryptedMessage: DecryptedMessage = {
+      conversationId,
       messageId,
       senderId,
       timestamp,

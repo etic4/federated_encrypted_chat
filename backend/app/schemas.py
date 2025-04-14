@@ -1,6 +1,5 @@
 import re
 from pydantic import BaseModel, Field
-from typing import Dict, List, Optional
 from datetime import datetime
 
 
@@ -63,15 +62,11 @@ class UserPublicKeyResponse(BaseWithConfig):
     publicKey: str  # Base64
 
 
-class MessageBase(BaseWithConfig):
+class MessageCreate(BaseWithConfig):
+    conversationId: int
     nonce: str  # Base64
     ciphertext: str  # Base64
-    authTag: str  # Base64
-    associatedData: Optional[Dict] = None
-
-
-class MessageCreate(MessageBase):
-    conversationId: int
+    associatedData: dict | None = None
 
 
 class MessageCreateResponse(BaseWithConfig):
@@ -79,25 +74,30 @@ class MessageCreateResponse(BaseWithConfig):
     timestamp: datetime
 
 
-class MessageResponse(MessageBase):
+class MessageResponse(BaseWithConfig):
+    conversationId: int
     messageId: int
     senderId: str  # Username
     timestamp: datetime
+    nonce: str  # Base64
+    ciphertext: str  # Base64
+    associatedData: dict | None = None
+
+
+# websocket message
+class NewMessagePayload(MessageResponse):
+    type: str = "newMessage"
 
 
 class ConversationCreateRequest(BaseWithConfig):
-    participants: List[str]  # Usernames
-    encryptedKeys: Dict[str, str]  # username: encryptedKey (Base64)
+    participants: list[str]  # Usernames
+    encryptedKeys: dict[str, str]  # username: encryptedKey (Base64)
 
 
 class ConversationResponse(BaseWithConfig):
     conversationId: int
-    participants: List[str]
+    participants: list[str]
     createdAt: datetime
-
-
-class ConversationListResponse(BaseWithConfig):
-    conversations: List[ConversationResponse]
 
 
 class ParticipantAddRequest(BaseWithConfig):
@@ -105,6 +105,35 @@ class ParticipantAddRequest(BaseWithConfig):
     encryptedSessionKey: str  # Base64 (clé chiffrée)
 
 
-class SessionKeyUpdateRequest(BaseModel):
-    participants: List[str]  # Usernames restants
-    newEncryptedKeys: Dict[str, str]  # username: newEncryptedKey
+class SessionKeyUpdateRequest(BaseWithConfig):
+    participants: list[str]  # Usernames restants
+    newEncryptedKeys: dict[str, str]  # username: newEncryptedKey
+
+
+class ParticipantPayload(BaseWithConfig):
+    conversationId: int
+    username: str
+    addedBy: str  # Username
+    publicKey: str  # Base64
+
+
+class ParticipantAddedPayload(BaseWithConfig):
+    type: str = "participantAdded"
+    data: ParticipantPayload
+
+
+class NewKeyPayload(BaseWithConfig):
+    conversationId: int
+    removedUserIds: list[int]  # ID utilisateur
+    remainingParticipants: list[str]  # Usernames restants
+    newEncryptedSessionKey: str  # Base64 (clé chiffrée)
+
+
+class KeyRotationPayload(BaseWithConfig):
+    type: str = "keyRotation"
+    data: NewKeyPayload
+
+
+class RemoveFromConversationPayload(BaseWithConfig):
+    type: str = "removeFromConversation"
+    data: dict[str, int]
