@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import UiButton from '@/components/ui/button/Button.vue'
+import { Button } from '@/components/ui/button/'
+import { Dialog } from '@/components/ui/dialog'
 import { useConversations } from '@/composables/useConversations'
 
 const isOpen = ref(false)
 const selectedUsers = ref<string[]>([])
 
-// Liste factice d'utilisateurs
-const mockUsers = ['alice', 'bob', 'carol', 'dave']
+// Liste des participants
+const participants = ref<string[]>([])
 
 const { createConversation: createConv, fetchConversations } = useConversations()
 
@@ -30,9 +31,9 @@ async function createConversation() {
 
 <template>
   <div>
-    <ui-dialog v-model="isOpen">
+    <Dialog v-model="isOpen">
       <template #trigger>
-        <ui-button @click="isOpen = true">Nouvelle conversation</ui-button>
+        <Button @click="isOpen = true">Nouvelle conversation</Button>
       </template>
       <template #default>
         <div class="p-4 space-y-4">
@@ -40,7 +41,7 @@ async function createConversation() {
           <div>
             <label class="block mb-2 font-medium">Participants :</label>
             <div class="space-y-2">
-              <div v-for="user in mockUsers" :key="user" class="flex items-center space-x-2">
+              <div v-for="user in participants" :key="user" class="flex items-center space-x-2">
                 <input
                   type="checkbox"
                   :id="user"
@@ -52,10 +53,10 @@ async function createConversation() {
               </div>
             </div>
           </div>
-          <ui-button @click="createConversation" class="mt-4 w-full">Créer</ui-button>
+          <Button @click="createConversation" class="mt-4 w-full">Créer</Button>
         </div>
       </template>
-    </ui-dialog>
+    </Dialog>
   </div>
 </template>
 

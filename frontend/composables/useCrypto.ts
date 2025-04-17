@@ -18,6 +18,7 @@
  *
  * À utiliser dans les composants ou autres composables pour toute opération cryptographique.
  */
+import { type KdfParams } from '~/types/models'
 
 // Charge la bibliothèque libsodium depuis l'objet global `window`
 /**
@@ -36,43 +37,67 @@ const getSodium = async (): Promise<typeof import('libsodium-wrappers')> => {
 export function useCrypto() {
 
   /**
+   * Génère une paire de clés (publique/privée) pour le login de l'utilisateur
+   * Utilisée pour signer le challenge envoyé par le backend.
+   * Utilise crypto_sign_ke (Ed25519).
+   * @returns {Promise<void>}
+   */
+  const generateLoginKeyPair = async (): Promise<{ keyType: string; publicKey: Uint8Array; privateKey: Uint8Array }> => {
+    const sodium = await getSodium()
+    return sodium.crypto_sign_keypair()
+  }
+
+
+  /**
    * Génère une paire de clés (publique/privée) pour l'identité d'un utilisateur.
    * Utilise l'algorithme crypto_box (Curve25519, XSalsa20, Poly1305).
    * @returns {Promise<{publicKey: Uint8Array, privateKey: Uint8Array}>}
    * À utiliser pour l'identité principale de l'utilisateur.
    */
-  const generateIdentityKeyPair = async (): Promise<{ publicKey: Uint8Array; privateKey: Uint8Array }> => {
+  const generateIdentityKeyPair = async (): Promise<{ keyType: string; publicKey: Uint8Array; privateKey: Uint8Array }> => {
     const sodium = await getSodium()
     return sodium.crypto_box_keypair()
+  }
+
+
+  const getDefaultKdfParams = async (): Promise<KdfParams> => {
+    const sodium = await getSodium()
+    return {
+      algorithm: sodium.crypto_pwhash_ALG_DEFAULT,  // argon2id
+      iterations: sodium.crypto_pwhash_OPSLIMIT_MODERATE,
+      memory: sodium.crypto_pwhash_MEMLIMIT_MODERATE,
+      parallelism: 1
+    }
   }
 
   /**
    * Dérive une clé symétrique à partir d'un mot de passe utilisateur et d'un sel, via Argon2id.
    * @param {string} password - Mot de passe utilisateur (UTF-8)
    * @param {Uint8Array} salt - Sel cryptographique (généré aléatoirement)
-   * @returns {Promise<{key: Uint8Array, params: object}>} Clé dérivée et paramètres utilisés
+   * @returns {Promise<{key: Uint8Array, params: KdfParams}>} Clé dérivée et paramètres utilisés
    * Sécurité : le sel doit être unique par utilisateur/mot de passe.
    * Usage : chiffrement de la clé privée sur le device.
    */
-  const deriveKeyFromPassword = async (password: string, salt: Uint8Array): Promise<{ key: Uint8Array; params: object }> => {
+  const deriveKeyFromPassword = async (
+    password: string,
+    salt: Uint8Array,
+    kdfParams?: KdfParams
+  ): Promise<{ key: Uint8Array; kdfParams: KdfParams }> => {
     const sodium = await getSodium()
     const keyLength = sodium.crypto_secretbox_KEYBYTES
+    kdfParams = kdfParams ?? await getDefaultKdfParams()
+  
     const key = sodium.crypto_pwhash(
       keyLength,
       password,
       salt,
-      sodium.crypto_pwhash_OPSLIMIT_MODERATE,
-      sodium.crypto_pwhash_MEMLIMIT_MODERATE,
-      sodium.crypto_pwhash_ALG_DEFAULT
+      kdfParams.iterations,
+      kdfParams.memory,
+      kdfParams.algorithm
     )
     return {
       key,
-      params: {
-        algorithm: "argon2id",
-        iterations: sodium.crypto_pwhash_OPSLIMIT_MODERATE,
-        memory: sodium.crypto_pwhash_MEMLIMIT_MODERATE,
-        parallelism: 1
-      }
+      kdfParams
     }
   }
 
@@ -95,11 +120,11 @@ export function useCrypto() {
    * @returns {Promise<{cipher: Uint8Array, nonce: Uint8Array}>}
    * Sécurité : le nonce est aléatoire et doit être stocké avec le cipher.
    */
-  const encryptPrivateKey = async (privateKey: Uint8Array, key: Uint8Array): Promise<{ cipher: Uint8Array; nonce: Uint8Array; }> => {
+  const encryptPrivateKey = async (privateKey: Uint8Array, key: Uint8Array): Promise<Uint8Array> => {
     const sodium = await getSodium()
     const nonce = sodium.randombytes_buf(sodium.crypto_secretbox_NONCEBYTES)
     const cipher = sodium.crypto_secretbox_easy(privateKey, nonce, key)
-    return { cipher, nonce }
+    return new Uint8Array([...nonce, ...cipher]);
   }
 
   /**
@@ -109,9 +134,26 @@ export function useCrypto() {
    * @param {Uint8Array} key - Clé symétrique
    * @returns {Promise<Uint8Array|null>} Clé privée ou null si échec (mauvaise clé)
    */
-  const decryptPrivateKey = async (cipher: Uint8Array, nonce: Uint8Array, key: Uint8Array): Promise<Uint8Array | null> => {
+  const decryptPrivateKey = async (
+    encryptedPrivateKey: Uint8Array, 
+    key: Uint8Array,
+  ): Promise<Uint8Array | null> => {
     const sodium = await getSodium()
-    return sodium.crypto_secretbox_open_easy(cipher, nonce, key)
+    const nonceLength = sodium.crypto_secretbox_NONCEBYTES;
+    const nonce = encryptedPrivateKey.slice(0, nonceLength);
+    const cipher = encryptedPrivateKey.slice(nonceLength);
+    try {
+      // Tente de déchiffrer
+      const decrypted = sodium.crypto_secretbox_open_easy(cipher, nonce, key);
+      // Si le déchiffrement réussit sans exception, retourne le résultat
+      console.log('[Crypto] Decrypted private key:', sodium.to_hex(decrypted));
+      return decrypted;
+    } catch (error) {
+      // Si une exception est levée (y compris TypeError: invalid nonce length ou autre)
+      console.error('[Crypto Error] Decryption failed inside decryptPrivateKey:', error);
+      // Retourne null pour indiquer un échec (mauvaise clé, données corrompues, etc.)
+      return null;
+    }
   }
 
   /**
@@ -159,7 +201,10 @@ export function useCrypto() {
    * @returns {Promise<{cipher: Uint8Array, nonce: Uint8Array}>}
    * Usage : messages de session, stockage local.
    */
-  const encryptMessage = async (message: Uint8Array, key: Uint8Array) => {
+  const encryptMessage = async (
+    message: Uint8Array,
+    key: Uint8Array
+  ): Promise<{ cipher: Uint8Array; nonce: Uint8Array }> => {
     const sodium = await getSodium()
     const nonce = sodium.randombytes_buf(sodium.crypto_secretbox_NONCEBYTES)
     const cipher = sodium.crypto_secretbox_easy(message, nonce, key)
@@ -181,13 +226,16 @@ export function useCrypto() {
   /**
    * Signe un message avec une clé privée (Ed25519).
    * @param {Uint8Array} message - Message à signer
-   * @param {Uint8Array} privateKey - Clé privée de signature
+   * @param {Uint8Array} secretKey - Clé privée de signature
    * @returns {Promise<Uint8Array>} Signature détachée
    * Usage : authentification, vérification d'intégrité.
    */
-  const sign = async (message: Uint8Array, privateKey: Uint8Array): Promise<Uint8Array> => {
+  const sign = async (message: Uint8Array, secretKey: Uint8Array): Promise<Uint8Array> => {
     const sodium = await getSodium()
-    return sodium.crypto_sign_detached(message, privateKey)
+    console.log('[Crypto] Signing message:', sodium.to_hex(message))
+    const signature = sodium.crypto_sign_detached(message, secretKey as Uint8Array)
+    console.log('[Crypto] Signature:', sodium.to_hex(signature))
+    return signature
   }
 
   /**
@@ -220,8 +268,8 @@ export function useCrypto() {
   ): Promise<string> => {
     const sodium = await getSodium()
     // Convertir les clés en base64 pour concaténation stable
-    const myKeyB64 = sodium.to_base64(myPublicKey)
-    const theirKeyB64 = sodium.to_base64(theirPublicKey)
+    const myKeyB64 = sodium.to_base64(myPublicKey, sodium.base64_variants.ORIGINAL)
+    const theirKeyB64 = sodium.to_base64(theirPublicKey, sodium.base64_variants.ORIGINAL)
     // Ordre stable pour éviter les collisions
     let concatStr: string
     if (myId < theirId) {
@@ -288,7 +336,7 @@ export function useCrypto() {
    */
   const toBase64 = async (data: Uint8Array): Promise<string> => {
     const sodium = await getSodium()
-    return sodium.to_base64(data)
+    return sodium.to_base64(data, sodium.base64_variants.ORIGINAL)
   }
 
   /**
@@ -298,30 +346,7 @@ export function useCrypto() {
    */
   const fromBase64 = async (data: string): Promise<Uint8Array> => {
     const sodium = await getSodium()
-    return sodium.from_base64(data)
-  }
-
-  /**
-   * Décode une chaîne base64 avec une variante optionnelle (ex : URL-safe).
-   * @param {string} str - Chaîne base64
-   * @param {number} [variant] - Variante sodium (ex : sodium.base64_variants.URLSAFE)
-   * @returns {Promise<Uint8Array>}
-   */
-  const decodeBase64 = async (str: string, variant?: number): Promise<Uint8Array> => {
-    const sodium = await getSodium()
-    return sodium.from_base64(str, variant)
-  }
-
-  /**
-   * Déchiffre un message avec une clé symétrique et un nonce (alias pour compatibilité).
-   * @param {Uint8Array} cipher - Message chiffré
-   * @param {Uint8Array} nonce - Nonce utilisé
-   * @param {Uint8Array} key - Clé symétrique
-   * @returns {Promise<Uint8Array|null>}
-   */
-  const secretboxOpenEasy = async (cipher: Uint8Array, nonce: Uint8Array, key: Uint8Array): Promise<Uint8Array | null> => {
-    const sodium = await getSodium()
-    return sodium.crypto_secretbox_open_easy(cipher, nonce, key)
+    return sodium.from_base64(data, sodium.base64_variants.ORIGINAL)
   }
 
   /**
@@ -373,6 +398,7 @@ export function useCrypto() {
 
   // Expose toutes les fonctions du composable
   return {
+    generateLoginKeyPair,
     generateIdentityKeyPair,
     deriveKeyFromPassword,
     generateKdfSalt,
@@ -388,8 +414,6 @@ export function useCrypto() {
     calculateSafetyNumber,
     toBase64,
     fromBase64,
-    decodeBase64,
-    secretboxOpenEasy,
     getSecretboxNonceBytes,
     toHex,
     fromHex,

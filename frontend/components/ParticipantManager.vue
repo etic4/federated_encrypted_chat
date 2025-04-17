@@ -2,12 +2,10 @@
 import { ref, defineProps, defineEmits } from 'vue'
 import Button from '@/components/ui/button/Button.vue'
 import Input from '@/components/ui/input/Input.vue'
-import { useConversationsStore } from '../stores/conversations'
+import { useConversationsStore } from '@/stores/conversations'
 import SafetyNumberModal from './SafetyNumberModal.vue'
+import { type Participant } from '@/types/models'
 
-interface Participant {
-  username: string
-}
 
 const props = defineProps<{
   participants: Participant[]

@@ -1,19 +1,9 @@
-from fastapi import FastAPI
+# backend/main.py
+# Ce fichier sert de point d'entrée pour Uvicorn.
+# Il importe l'instance 'app' configurée depuis backend/app/main.py
 
-app = FastAPI(title="Secure Chat Backend")
+from app.main import app  # noqa: F401
 
-
-@app.get("/")
-async def read_root():
-    return {"message": "Welcome to Secure Chat Backend"}
-from app.api import auth as auth_router
-from app.api import users as users_router
-from app.api import conversations as conversations_router
-from app.api import messages as messages_router
-from app.api import websocket as websocket_router
-
-app.include_router(auth_router.router, prefix="/auth", tags=["auth"])
-app.include_router(users_router.router, prefix="/users", tags=["users"])
-app.include_router(conversations_router.router, prefix="/conversations", tags=["conversations"])
-app.include_router(messages_router.router, prefix="/messages", tags=["messages"])
-app.include_router(websocket_router.router, tags=["websocket"])
+# Uvicorn utilisera cette instance 'app' lorsqu'il sera lancé avec 'backend.main:app'
+# La configuration, l'initialisation de la DB et l'inclusion des routeurs
+# sont gérées dans app/main.py

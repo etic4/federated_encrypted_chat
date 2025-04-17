@@ -4,21 +4,21 @@ import { useRoute } from 'vue-router'
 import MessageView from '@/components/MessageView.vue'
 import MessageInput from '@/components/MessageInput.vue'
 import ParticipantManager from '@/components/ParticipantManager.vue'
-import { useMessageStore } from '@/stores/messages'
 import { useConversationsStore } from '@/stores/conversations'
 import { useAuthStore } from '@/stores/auth'
 import { useMessages } from '@/composables/useMessages'
 import { useConversations } from '@/composables/useConversations'
+import { useCrypto } from '@/composables/useCrypto'
 
 const route = useRoute()
-const messageStore = useMessageStore()
 const conversationsStore = useConversationsStore()
 const authStore = useAuthStore()
 const { addParticipant, removeParticipant } = useConversations()
 
-const conversationId = Number(route.params.id)
+const conversationId = ref(Number(route.params.id))
 
 const { sendMessage: sendEncryptedMessage, loadHistory } = useMessages()
+const crypto = useCrypto()
 
 async function sendMessage(conversationId: number, content: string) {
   try {
@@ -33,7 +33,7 @@ async function sendMessage(conversationId: number, content: string) {
 
 // Trouver la conversation active
 const conversation = computed(() =>
-  conversationsStore.conversations.find((c) => c.conversationId === conversationId)
+  conversationsStore.conversations.find((c) => c.conversationId === conversationId.value)
 )
 
 // Transformer les participants en objets { username }
@@ -63,12 +63,44 @@ const removeParticipantFeedback = ref<{ type: 'success' | 'error'; message: stri
 const removeParticipantLoading = ref(false)
 
 /**
+ * Met à jour la conversation courante dans le store et déchiffre la clé de session si présente.
+ */
+ async function handleConversationSetup() {
+  // On récupère la conversation active
+  const conv = conversationsStore.conversations.find((c) => c.conversationId === conversationId.value)
+  if (!conv) return
+
+  // On met à jour l'id de la conversation courante dans le store
+  conversationsStore.setCurrentConversationId(conversationId.value)
+
+  // Déchiffrement de la clé de session si présente
+  if (conv.encryptedSessionKey && authStore.publicKey && authStore.privateKey) {
+    try {
+      const encryptedKey = await crypto.fromBase64(conv.encryptedSessionKey)
+      // Les clés sont stockées en Uint8Array dans le store d'auth
+      const publicKey = authStore.publicKey
+      const privateKey = authStore.privateKey
+      const sessionKey = await crypto.sealOpen(encryptedKey, publicKey, privateKey)
+      if (sessionKey) {
+        conversationsStore.setSessionKey(conv.conversationId, sessionKey)
+      } else {
+        // Optionnel : gestion d'erreur si le déchiffrement échoue
+        // console.warn('Impossible de déchiffrer la clé de session pour la conversation', conv.conversationId)
+      }
+    } catch (e) {
+      // Optionnel : gestion d'erreur
+      // console.error('Erreur lors du déchiffrement de la clé de session:', e)
+    }
+  }
+}
+
+/**
  * Handler pour l’ajout de participant (depuis ParticipantManager)
  */
 async function handleAddParticipant(usernameToAdd: string) {
   addParticipantLoading.value = true
   addParticipantFeedback.value = null
-  const result = await addParticipant(conversationId, usernameToAdd)
+  const result = await addParticipant(conversationId.value, usernameToAdd)
   if (result.success) {
     addParticipantFeedback.value = { type: 'success', message: `Participant ajouté (${usernameToAdd})` }
   } else {
@@ -83,7 +115,7 @@ async function handleAddParticipant(usernameToAdd: string) {
 async function handleRemoveParticipant(usernameToRemove: string) {
   removeParticipantLoading.value = true
   removeParticipantFeedback.value = null
-  const result = await removeParticipant(conversationId, usernameToRemove)
+  const result = await removeParticipant(conversationId.value, usernameToRemove)
   if (result.success) {
     removeParticipantFeedback.value = { type: 'success', message: `Participant retiré (${usernameToRemove})` }
   } else {
@@ -93,18 +125,23 @@ async function handleRemoveParticipant(usernameToRemove: string) {
 }
 
 onMounted(() => {
-  loadHistory(conversationId)
+  handleConversationSetup()
+  loadHistory(conversationId.value)
+  
 })
 
 watch(
   () => route.params.id,
   (newId, oldId) => {
     if (newId !== oldId) {
-      const convId = Number(newId)
-      loadHistory(convId)
+      conversationId.value = Number(newId)
+      handleConversationSetup()
+      loadHistory(conversationId.value)
+      
     }
   }
 )
+
 </script>
 
 <template>
@@ -112,7 +149,7 @@ watch(
     <!-- Barre d'en-tête -->
     <div class="flex items-center justify-between px-4 py-2 border-b bg-white dark:bg-gray-900">
       <div class="font-semibold text-lg truncate">
-        {{ conversation?.conversationId || 'Conversation' }}
+        {{ conversationId || 'Conversation' }}
       </div>
       <button
         class="ml-2 px-3 py-1 rounded bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-sm"

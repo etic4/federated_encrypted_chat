@@ -19,10 +19,6 @@ const crypto = useCrypto();
 
 
 export const useConversationsStore = defineStore('conversations', () => {
-  // =========================
-  // ÉTAT (STATE)
-  // =========================
-  
   /**
    * Liste des conversations de l'utilisateur.
    * Chaque conversation suit le modèle ConversationResponse.

@@ -65,59 +65,40 @@ export const useMessageStore = defineStore('messages', () => {
   }
 
   /**
-   * Fonction fictive (placeholder) pour récupérer la clé de conversation.
-   * À remplacer par une vraie implémentation si besoin de récupération asynchrone.
-   * @param conversationId Identifiant de la conversation
-   * @returns Clé de conversation ou null
-   */
-  function getConversationKey(conversationId: number): Uint8Array | undefined {
-    return conversationsStore.getSessionKey(conversationId);
-  }
-
-  /**
    * Gère un message entrant (temps réel ou historique) :
    * - Déchiffre le message reçu à l'aide de la clé de session de la conversation.
    * - Gère les erreurs de déchiffrement et les signale dans le message.
    * - Ajoute le message déchiffré à l'état du store.
    *
-   * @param messageData Données du message chiffré à traiter.
+   * @param msg Données du message chiffré à traiter.
    */
-  async function handleIncomingMessage(messageData: MessageResponse) {
-    // Extraction des champs du message reçu
-    const { conversationId, messageId, senderId, timestamp, ciphertext } = messageData;
+  async function handleIncomingMessage(msg: MessageResponse) {
+    
     let plaintext = '';
     let error: string | undefined;
 
     try {
       // Récupère la clé de session pour la conversation
-      const key = getConversationKey(conversationId);
-      if (!key) {
+      const sessionKey = conversationsStore.getSessionKey(msg.conversationId);
+      if (!sessionKey) {
         // Si la clé n'est pas trouvée, on lève une erreur explicite
         throw new Error('Clé de conversation introuvable');
       }
 
-      // Décodage du message chiffré depuis le format base64
-      // Le message contient le nonce suivi du cipher
-      const decodedCiphertext = await crypto.decodeBase64(ciphertext, 1); // 1 = sodium.base64_variants.ORIGINAL
+       // Décode les champs base64 en Uint8Array
+       const nonce_bytes = await crypto.fromBase64(msg.nonce)
+       const ciphertext_bytes = await crypto.fromBase64(msg.ciphertext)
 
-      // Récupère la taille du nonce utilisée par la librairie
-      const nonceLength = await crypto.getSecretboxNonceBytes();
+       // Déchiffre le message
+       const plaintextBytes = await crypto.decryptMessage(ciphertext_bytes, nonce_bytes, sessionKey)
+       if (!plaintextBytes) {
+         throw new Error('Erreur déchiffement message')
+       }
+       plaintext = crypto.uint8ArrayToString(plaintextBytes)
 
-      // Sépare le nonce (en tête) du cipher (reste du message)
-      const nonce = decodedCiphertext.slice(0, nonceLength);
-      const cipher = decodedCiphertext.slice(nonceLength);
-
-      // Déchiffre le message avec la clé de session, le nonce et le cipher
-      const decrypted = await crypto.secretboxOpenEasy(cipher, nonce, key);
-      if (!decrypted) {
-        // Si le déchiffrement échoue, on lève une erreur explicite
-        throw new Error('Échec du déchiffrement');
-      }
-      // Conversion du buffer déchiffré en texte lisible
-      plaintext = new TextDecoder().decode(decrypted);
     } catch (e: any) {
       // En cas d'erreur (clé manquante, déchiffrement impossible, etc.)
-      plaintext = '';
+      plaintext = '***ERREUR DE DÉCHIFFREMENT***';
       error = e.message || 'Erreur de déchiffrement';
     }
 
@@ -125,13 +106,15 @@ export const useMessageStore = defineStore('messages', () => {
      * Construction de l'objet message déchiffré, incluant éventuellement l'erreur.
      * L'objet est ensuite ajouté à la conversation concernée.
      */
+    // Extraction des champs du message reçu
+    const { conversationId, messageId, senderId, timestamp } = msg;
     const decryptedMessage: DecryptedMessage = {
       conversationId,
       messageId,
       senderId,
       timestamp,
       plaintext,
-      ...(error ? { error } : {}),
+      error,
     };
 
     addMessage(conversationId, decryptedMessage);
@@ -147,6 +130,5 @@ export const useMessageStore = defineStore('messages', () => {
     setMessagesForConversation,
     clearMessages,
     handleIncomingMessage,
-    getConversationKey,
   };
 });

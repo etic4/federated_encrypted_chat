@@ -1,7 +1,6 @@
 export interface User {
   id: string;
   username: string;
-  email: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -28,22 +27,21 @@ export interface AuthState {
 
 export interface ChallengeResponse {
   challenge: string;
-  publicKey: string;
+  encryptedLoginPrivateKey: string;
   encryptedPrivateKey: string;
   kdfSalt: string;
   kdfParams: KdfParams;
 }
 
-export interface AuthResponse {
-  token: string;
+export interface AuthResponseOK {
+  accessToken: string;
+  tokenType: string;
+  username: string;
   userId: string;
-  email: string;
-  createdAt: string;
-  updatedAt: string;
 }
 
 export interface KdfParams {
-  algorithm: string;
+  algorithm: number;
   iterations: number;
   memory: number;
   parallelism: number;
@@ -114,6 +112,12 @@ export interface ConversationResponse {
   conversationId: number;
   participants: string[];
   createdAt: string; // ISO 8601 format
+  encryptedSessionKey?: string; // Base64, clé chiffrée pour l'utilisateur courant
+}
+
+
+export interface Participant {
+  username: string
 }
 
 

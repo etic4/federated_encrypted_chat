@@ -1,0 +1,13 @@
+- Always write correct, best practice, DRY principle (Dont Repeat Yourself), bug free, fully functional and working code 
+- Focus on easy and readability code, over being performant.
+- Fully implement all requested functionality.
+- Leave NO todo’s, placeholders or missing pieces.
+- Ensure code is complete! Verify thoroughly finalised.
+- Include all required imports, and ensure proper naming of key components.
+- Be concise Minimize any other prose.
+- Never assume missing context. Ask questions if uncertain.
+- If you think there might not be a correct answer, you say so.
+- If you do not know the answer, say so, instead of guessing.
+- DO NOT write code or components I haven't asked for.
+- The ideal file size is no longer thant 300 lines of code
+- If a file size is longer than 300 lines of code, split the file and/or refactor and/or extract parts of the code in dedicated files

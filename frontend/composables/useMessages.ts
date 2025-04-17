@@ -32,7 +32,7 @@ export function useMessages() {
   async function sendMessage(conversationId: number, plaintext: string) {
 
       // Récupère la clé de session pour la conversation
-      const sessionKey = await messageStore.getConversationKey(conversationId)
+      const sessionKey = conversationStore.getSessionKey(conversationId)
       if (!sessionKey) {
         throw new Error('Clé de session introuvable')
       }
@@ -72,7 +72,7 @@ export function useMessages() {
             'Content-Type': 'application/json',
             'Authorization': authStore.getAuthToken ? `Bearer ${authStore.getAuthToken}` : ''
           },
-          body: JSON.stringify(payload)
+          body: payload
         })
 
         console.log('Réponse API:', response)
@@ -126,6 +126,9 @@ export function useMessages() {
  
            // Déchiffre le message
            const plaintextBytes = await crypto.decryptMessage(ciphertext, nonce, sessionKey)
+           if (!plaintextBytes) {
+             throw new Error('Erreur déchiffement message')
+           }
            const plaintext = crypto.uint8ArrayToString(plaintextBytes)
  
            // Ajoute le message déchiffré au tableau
@@ -143,7 +146,7 @@ export function useMessages() {
              conversationId: msg.conversationId,
              messageId: msg.messageId,
              senderId: msg.senderId,
-             plaintext: '',
+             plaintext: '***ERREUR DE DÉCHIFFREMENT***',
              timestamp: msg.timestamp,
              error: 'Erreur de déchiffrement'
            })

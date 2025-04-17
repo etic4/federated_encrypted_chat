@@ -3,7 +3,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from datetime import datetime
-import base64
+import base64 # Ajouter l'import
+import binascii # Ajouter l'import
 
 # Importation des modèles et schémas utilisés dans les routes
 from app.models import User, Conversation, Participant
@@ -11,15 +12,14 @@ from app.schemas import (
     ConversationCreateRequest,
     ConversationResponse,
     KeyRotationPayload,
-    NewKeyPayload,
     MessageResponse,
     ParticipantAddRequest,
     ParticipantPayload,
     ParticipantAddedPayload,
     RemoveFromConversationPayload,
-    SessionKeyUpdateRequest
+    SessionKeyUpdateRequest,
 )
-from app.database import get_db
+from app.database import get_session
 from app.security import get_current_user
 from app.api.websocket import manager
 
@@ -32,30 +32,27 @@ router = APIRouter()
 
 
 # Route pour créer une nouvelle conversation
-@router.post("/", status_code=status.HTTP_201_CREATED)
+@router.post("", status_code=status.HTTP_201_CREATED)
 async def create_conversation(
     conversation_data: ConversationCreateRequest,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_session),
 ) -> ConversationResponse:
     # Vérifier que l'utilisateur courant est inclus dans les participants
     if current_user.username not in conversation_data.participants:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Vous devez être inclus dans la conversation"
+            detail="Vous devez être inclus dans la conversation",
         )
 
     # Récupérer tous les utilisateurs participants à partir de leurs noms d'utilisateur
     participants = []
     for username in conversation_data.participants:
-        result = await db.execute(
-            select(User).where(User.username == username)
-        )
+        result = await db.execute(select(User).where(User.username == username))
         user = result.scalars().first()
         if not user:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Utilisateur {username} non trouvé"
+                status_code=status.HTTP_404_NOT_FOUND, detail=f"Utilisateur {username} non trouvé"
             )
         participants.append(user)
 
@@ -66,31 +63,38 @@ async def create_conversation(
 
     # Ajouter les participants à la conversation avec leurs clés chiffrées
     for user in participants:
-        encrypted_key = base64.b64decode(conversation_data.encryptedKeys[user.username])  # Décoder la clé chiffrée
+        # Décoder la clé Base64 reçue en bytes
+        try:
+            encrypted_key_bytes = base64.b64decode(conversation_data.encryptedKeys[user.username])
+        except (TypeError, binascii.Error) as e:
+             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid Base64 encrypted key for user {user.username}: {e}")
+
         participant = Participant(
             conversation_id=new_conversation.id,  # Associer l'ID de la conversation
             user_id=user.id,  # Associer l'ID de l'utilisateur
-            encrypted_session_key=encrypted_key  # Stocker la clé de session chiffrée
+            encrypted_session_key=encrypted_key_bytes,  # Stocker les bytes de la clé de session chiffrée
         )
         db.add(participant)  # Ajouter le participant à la session de base de données
 
     # Sauvegarder les modifications dans la base de données
     await db.commit()
-    await db.refresh(new_conversation)  # Rafraîchir l'objet conversation pour inclure les données mises à jour
+    await db.refresh(
+        new_conversation
+    )  # Rafraîchir l'objet conversation pour inclure les données mises à jour
 
     # Retourner les détails de la conversation créée
     return ConversationResponse(
         conversationId=new_conversation.id,  # ID de la conversation
         participants=conversation_data.participants,  # Liste des participants
-        createdAt=datetime.now()  # Date et heure de création
+        encryptedSessionKey=conversation_data.encryptedKeys[current_user.username],  # Clé de session chiffrée pour l'utilisateur courant
+        createdAt=datetime.now(),  # Date et heure de création
     )
 
 
 # Route pour lister les conversations auxquelles l'utilisateur courant participe
-@router.get("/")
+@router.get("")
 async def list_conversations(
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_session)
 ) -> list[ConversationResponse]:
     # Récupérer les conversations auxquelles l'utilisateur courant participe
     result = await db.execute(
@@ -106,18 +110,31 @@ async def list_conversations(
     for conv in conversations:
         # Récupérer les noms d'utilisateur des participants
         participants_result = await db.execute(
-            select(User.username)
-            .join(Participant)
-            .where(Participant.conversation_id == conv.id)
+            select(User.username).join(Participant).where(Participant.conversation_id == conv.id)
         )
         participants = [p[0] for p in participants_result.all()]  # Extraire les noms d'utilisateur
 
+        # Récupérer la clé de session chiffrée pour l'utilisateur courant
+        participant_stmt = select(Participant).where(
+            Participant.conversation_id == conv.id, Participant.user_id == current_user.id
+        )
+        participant_result = await db.execute(participant_stmt)
+        participant_obj = participant_result.scalar_one_or_none()
+        # Encoder les bytes lus de la DB en Base64 pour la réponse
+        if participant_obj and participant_obj.encrypted_session_key:
+            encrypted_session_key_b64 = base64.b64encode(participant_obj.encrypted_session_key).decode('utf-8')
+        else:
+            encrypted_session_key_b64 = None
+
         # Ajouter la conversation formatée à la liste
-        conversation_list.append(ConversationResponse(
-            conversationId=conv.id,  # ID de la conversation
-            participants=participants,  # Liste des participants
-            createdAt=datetime.now()  # Date et heure de création
-        ))
+        conversation_list.append(
+            ConversationResponse(
+                conversationId=conv.id,  # ID de la conversation
+                participants=participants,  # Liste des participants
+                createdAt=datetime.now(),  # Date et heure de création
+                encryptedSessionKey=encrypted_session_key_b64,
+            )
+        )
 
     return conversation_list  # Retourner la liste des conversations
 
@@ -129,12 +146,11 @@ async def get_conversation_messages(
     limit: int = 50,  # Limite du nombre de messages à récupérer
     before: Optional[int] = None,  # ID du message avant lequel récupérer les messages
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_session),
 ) -> List[MessageResponse]:
     # Vérifier que l'utilisateur courant est un participant de la conversation
     participant_stmt = select(Participant).where(
-        Participant.conversation_id == conv_id,
-        Participant.user_id == current_user.id
+        Participant.conversation_id == conv_id, Participant.user_id == current_user.id
     )
     participant_result = await db.execute(participant_stmt)
     participant = participant_result.scalar_one_or_none()
@@ -145,7 +161,9 @@ async def get_conversation_messages(
     msg_stmt = select(Message).where(Message.conversation_id == conv_id)
     if before is not None:
         msg_stmt = msg_stmt.where(Message.id < before)  # Filtrer les messages avant un certain ID
-    msg_stmt = msg_stmt.order_by(Message.timestamp.desc()).limit(limit)  # Trier par date décroissante et limiter
+    msg_stmt = msg_stmt.order_by(Message.timestamp.desc()).limit(
+        limit
+    )  # Trier par date décroissante et limiter
 
     result = await db.execute(msg_stmt)
     messages = result.scalars().all()  # Obtenir tous les messages correspondants
@@ -159,9 +177,10 @@ async def get_conversation_messages(
                 messageId=msg.id,  # ID du message
                 senderId=msg.sender.username,  # Nom d'utilisateur de l'expéditeur
                 timestamp=msg.timestamp,  # Horodatage du message
-                nonce=base64.b64encode(msg.nonce).decode(),  # Nonce encodé en base64
-                ciphertext=base64.b64encode(msg.ciphertext).decode(),  # Texte chiffré encodé en base64
-                associatedData=msg.associated_data  # Données associées
+                # Encoder les bytes lus de la DB en Base64 pour la réponse
+                nonce=base64.b64encode(msg.nonce).decode('utf-8'),
+                ciphertext=base64.b64encode(msg.ciphertext).decode('utf-8'),
+                associatedData=msg.associated_data,  # Données associées
             )
         )
     return messages_list  # Retourner la liste des messages
@@ -172,13 +191,12 @@ async def get_conversation_messages(
 async def add_participant(
     conv_id: int,
     participant_data: ParticipantAddRequest,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ) -> None:
     # Vérifier que l'utilisateur courant est un participant de la conversation
     participant_stmt = select(Participant).where(
-        Participant.conversation_id == conv_id,
-        Participant.user_id == current_user.id
+        Participant.conversation_id == conv_id, Participant.user_id == current_user.id
     )
     result = await db.execute(participant_stmt)
     existing_participant = result.scalar_one_or_none()
@@ -194,20 +212,24 @@ async def add_participant(
 
     # Vérifier que l'utilisateur n'est pas déjà participant
     check_stmt = select(Participant).where(
-        Participant.conversation_id == conv_id,
-        Participant.user_id == participant_data.userId
+        Participant.conversation_id == conv_id, Participant.user_id == participant_data.userId
     )
     result = await db.execute(check_stmt)
     already_participant = result.scalar_one_or_none()
     if already_participant:
         raise HTTPException(status_code=409, detail="Cet utilisateur est déjà participant.")
 
+    # Décoder la clé Base64 reçue en bytes
+    try:
+        encrypted_key_bytes = base64.b64decode(participant_data.encryptedSessionKey)
+    except (TypeError, binascii.Error) as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid Base64 encrypted key for new participant: {e}")
+
     # Ajouter le nouvel utilisateur comme participant
-    encrypted_key_bytes = base64.b64decode(participant_data.encryptedSessionKey)
     new_participant = Participant(
         conversation_id=conv_id,
         user_id=participant_data.userId,
-        encrypted_session_key=encrypted_key_bytes
+        encrypted_session_key=encrypted_key_bytes, # Stocker les bytes
     )
     db.add(new_participant)
     await db.commit()
@@ -218,9 +240,6 @@ async def add_participant(
     result = await db.execute(stmt)
     participant_usernames = [row[0] for row in result.all()]
 
-    # Encoder la clé publique du nouvel utilisateur
-    encoded_pk = base64.b64encode(user_to_add.public_key).decode("utf-8")
-
     # Construire le payload pour la notification WebSocket
     payload = ParticipantAddedPayload(
         type="participantAdded",
@@ -228,8 +247,9 @@ async def add_participant(
             conversationId=conv_id,
             username=user_to_add.username,
             addedBy=current_user.username,
-            publicKey=encoded_pk
-        )
+            # Encoder les bytes lus de la DB en Base64 pour le payload
+            publicKey=base64.b64encode(user_to_add.public_key).decode('utf-8'),
+        ),
     )
 
     # Envoyer la notification via WebSocket
@@ -242,7 +262,7 @@ async def update_session_key(
     conv_id: int,
     request: SessionKeyUpdateRequest,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_session),
 ):
     # Vérifier que l'utilisateur courant est autorisé à mettre à jour la clé de session
     current_username = current_user.username
@@ -250,9 +270,7 @@ async def update_session_key(
         raise HTTPException(status_code=403, detail="Not authorized to update session key")
 
     # Récupérer la conversation
-    conv_result = await db.execute(
-        select(Conversation).where(Conversation.id == conv_id)
-    )
+    conv_result = await db.execute(select(Conversation).where(Conversation.id == conv_id))
     conversation = conv_result.scalar_one_or_none()
     if conversation is None:
         raise HTTPException(status_code=404, detail="Conversation not found")
@@ -276,11 +294,12 @@ async def update_session_key(
         new_key_b64 = request.newEncryptedKeys.get(username)
         if not new_key_b64:
             continue
+        # Décoder la nouvelle clé Base64 reçue en bytes
         try:
             new_key_bytes = base64.b64decode(new_key_b64)
-        except Exception:
-            raise HTTPException(status_code=400, detail=f"Invalid base64 for user {username}")
-        participant.encrypted_session_key = new_key_bytes
+        except (TypeError, binascii.Error) as e:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid Base64 new encrypted key for user {username}: {e}")
+        participant.encrypted_session_key = new_key_bytes # Stocker les bytes
 
     # Supprimer les participants qui ne sont plus dans la liste
     for participant in to_remove:
@@ -294,15 +313,13 @@ async def update_session_key(
     # Envoyer des notifications aux participants restants
     for participant in to_update:
         username = participant.user.username
-        encoded_key = base64.b64encode(participant.encrypted_session_key).decode("utf-8")
         payload = KeyRotationPayload(
             type="keyRotation",
-            data=NewKeyPayload(
-                conversationId=conv_id,
-                removedUserIds=removed_ids,
-                remainingParticipants=remaining_usernames,
-                newEncryptedSessionKey=encoded_key
-            )
+            conversationId=conv_id,
+            removedUserIds=removed_ids,
+            remainingParticipants=remaining_usernames,
+            # Encoder les bytes lus de la DB en Base64 pour le payload
+            newEncryptedSessionKey=base64.b64encode(participant.encrypted_session_key).decode('utf-8')
         )
 
         await manager.send_personal_message(payload, username)
@@ -311,9 +328,7 @@ async def update_session_key(
     for removed_username in removed_usernames:
         payload = RemoveFromConversationPayload(
             type="removedFromConversation",
-            data={
-                "conversationId": conv_id
-            }
+            conversationId=conv_id,
         )
         await manager.send_personal_message(payload, removed_username)
 

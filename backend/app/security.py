@@ -6,6 +6,12 @@ from jose import JWTError, jwt
 import os
 import secrets
 
+from sqlalchemy import select
+
+from app.models import User
+from app.database import get_session
+from sqlalchemy.ext.asyncio import AsyncSession
+
 SECRET_KEY = os.getenv("SECRET_KEY", secrets.token_urlsafe(32))
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
@@ -24,7 +30,10 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     return encoded_jwt
 
 
-async def get_current_user(token: str = Depends(oauth2_scheme)):
+async def get_current_user(
+        token: str = Depends(oauth2_scheme),
+        session: AsyncSession = Depends(get_session)
+    ) -> User:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -37,9 +46,17 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
             raise credentials_exception
     except JWTError:
         raise credentials_exception
+    
+    results = await session.execute(
+        select(User).where(User.username == username)
+    )
+    user = results.scalars().first()
+
+    if user is None:
+        raise credentials_exception
     # Pour l'instant, nous retournons juste le username.
     # Plus tard, on pourrait vouloir récupérer l'objet User complet.
-    return username
+    return user
 
 
 # Ajouter une fonction pour décoder/valider le token si nécessaire pour la protection des endpoints

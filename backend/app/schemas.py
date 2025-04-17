@@ -16,7 +16,7 @@ class BaseWithConfig(BaseModel):
 
 
 class KdfParams(BaseWithConfig):
-    algorithm: str
+    algorithm: int
     iterations: int
     memory: int
     parallelism: int
@@ -25,9 +25,18 @@ class KdfParams(BaseWithConfig):
 class UserCreate(BaseWithConfig):
     username: str = Field(..., min_length=3, max_length=50)
     publicKey: str  # Base64
+    loginPublicKey: str  # Base64
     encryptedPrivateKey: str  # Base64
+    encryptedLoginPrivateKey: str  # Base64
     kdfSalt: str  # Base64
     kdfParams: KdfParams
+
+
+class AuthResponseOK(BaseWithConfig):
+    id: int
+    username: str
+    accessToken: str  # Base64
+    tokenType: str
 
 
 class Token(BaseWithConfig):
@@ -41,15 +50,15 @@ class ChallengeRequest(BaseWithConfig):
 
 class ChallengeResponse(BaseWithConfig):
     challenge: str  # Base64
-    publicKey: str
     encryptedPrivateKey: str
+    encryptedLoginPrivateKey: str
     kdfSalt: str
     kdfParams: KdfParams
 
 
 class VerifyRequest(BaseWithConfig):
     username: str
-    challenge: str  # Base64
+    challenge: bytes  # Base64
     signature: str  # Base64
 
 
@@ -98,6 +107,7 @@ class ConversationResponse(BaseWithConfig):
     conversationId: int
     participants: list[str]
     createdAt: datetime
+    encryptedSessionKey: str | None = None  # Base64, clé chiffrée pour l'utilisateur courant
 
 
 class ParticipantAddRequest(BaseWithConfig):
@@ -122,18 +132,14 @@ class ParticipantAddedPayload(BaseWithConfig):
     data: ParticipantPayload
 
 
-class NewKeyPayload(BaseWithConfig):
+class KeyRotationPayload(BaseWithConfig):
+    type: str = "keyRotation"
     conversationId: int
     removedUserIds: list[int]  # ID utilisateur
     remainingParticipants: list[str]  # Usernames restants
     newEncryptedSessionKey: str  # Base64 (clé chiffrée)
 
 
-class KeyRotationPayload(BaseWithConfig):
-    type: str = "keyRotation"
-    data: NewKeyPayload
-
-
 class RemoveFromConversationPayload(BaseWithConfig):
     type: str = "removeFromConversation"
-    data: dict[str, int]
+    conversationId: int
